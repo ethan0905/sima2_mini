@@ -1,3 +1,37 @@
+Metadata-Version: 2.4
+Name: sima-like-agent
+Version: 0.1.0
+Summary: A modular AI agent that learns to play video games through self-improvement, inspired by Google's SIMA 2
+Author: SIMA2 Mini Team
+License: MIT
+Project-URL: Homepage, https://github.com/your-org/sima-like-agent
+Project-URL: Repository, https://github.com/your-org/sima-like-agent
+Project-URL: Issues, https://github.com/your-org/sima-like-agent/issues
+Keywords: ai,reinforcement-learning,gaming,sima,self-improvement
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.24.0
+Requires-Dist: torch>=2.0.0
+Requires-Dist: dataclasses-json>=0.6.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: loguru>=0.7.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.5.0; extra == "dev"
+Dynamic: license-file
+
 # SIMA-Like Agent
 
 A modular AI agent that learns to play video games through self-improvement, inspired by Google's SIMA 2.

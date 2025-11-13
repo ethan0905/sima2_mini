@@ -1,0 +1,17 @@
+{
+  "stats": {
+    "agent_type": "Agent",
+    "creation_time": null,
+    "components": {
+      "policy_type": "MLPPolicy",
+      "encoder_type": "DummyVisionEncoder",
+      "reward_model_type": "SimpleRewardModel",
+      "environment_type": "DummyGameEnv",
+      "encoder_feature_dim": 16
+    }
+  },
+  "creation_time": null,
+  "version": "0.1.0",
+  "policy_checkpoint": "experiments/sima_experiment/agent_checkpoint_policy.pt",
+  "reward_model_state": "experiments/sima_experiment/agent_checkpoint_reward.pkl"
+}
