@@ -21,9 +21,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python minecraft_chat.py                    # Auto-focus mode (default)
+  python minecraft_chat.py                    # Auto-focus mode with screenshots (default)
   python minecraft_chat.py --manual-focus     # Manual focus mode (asks you to focus)
   python minecraft_chat.py --no-auto-focus    # Disable auto-focus (not recommended)
+  python minecraft_chat.py --no-screenshots   # Disable screenshot saving
+  python minecraft_chat.py --screenshots-folder my_pics  # Save to custom folder
   python minecraft_chat.py --openai-key sk-... # Start with full AI chat (gpt-4o-mini)
   
   OPENAI_API_KEY=sk-... python minecraft_chat.py  # Use environment variable
@@ -33,23 +35,24 @@ Instructions:
   2. Start this script  
   3. The agent will try to focus Minecraft automatically
   4. If that fails, you'll be prompted to click Minecraft manually
-  5. Type natural language instructions
+  5. Type natural language instructions or vision questions
   6. Watch the agent control Minecraft for you!
+  7. Screenshots are saved automatically for analysis debugging
 
 CRITICAL SETUP:
   • Set Minecraft to WINDOWED mode (not fullscreen)
   • In Minecraft: Options → Controls → Set 'Pause on Lost Focus: OFF'
   • Position Minecraft and terminal windows side-by-side
 
-Example conversations:
-  You: "Go forward and mine that tree"
-  Agent: "I'll move forward and break those wood blocks for you!"
+Enhanced vision capabilities:
+  You: "What do you see?"
+  Agent: "I can see: health is excellent, looking at stone/dirt, holding wood tool..."
   
-  You: "Build a small house here"  
-  Agent: "I'll help you build a house! What materials should I use?"
+  You: "Is it night or day?"  
+  Agent: "It's currently night time in the game."
   
-  You: "Look around for animals"
-  Agent: "I'll turn the camera to scan for nearby animals!"
+  You: "What am I holding?"
+  Agent: "You appear to be holding: wood item/tool"
         """
     )
     
@@ -95,6 +98,25 @@ Example conversations:
         help="Use manual focus mode (ask user to focus Minecraft before each command)"
     )
     
+    parser.add_argument(
+        "--save-screenshots",
+        action="store_true",
+        default=True,
+        help="Save screenshots during vision analysis (default: True)"
+    )
+    
+    parser.add_argument(
+        "--no-screenshots",
+        action="store_true",
+        help="Disable screenshot saving"
+    )
+    
+    parser.add_argument(
+        "--screenshots-folder",
+        default="screenshots",
+        help="Folder to save screenshots in (default: screenshots)"
+    )
+    
     args = parser.parse_args()
     
     if args.check_deps:
@@ -114,10 +136,14 @@ Example conversations:
     else:
         auto_focus = not args.no_auto_focus  # Auto mode (default) or disabled
     
+    # Determine screenshot settings
+    save_screenshots = not args.no_screenshots  # Default True unless disabled
+    screenshots_folder = args.screenshots_folder
+    
     # Import and start the agent
     try:
         from agent.conversational_agent import start_conversational_agent
-        start_conversational_agent(openai_api_key, args.model, auto_focus)
+        start_conversational_agent(openai_api_key, args.model, auto_focus, save_screenshots, screenshots_folder)
     except ImportError as e:
         print(f"❌ Import error: {e}")
         print("\n💡 Make sure you're running from the project root directory:")

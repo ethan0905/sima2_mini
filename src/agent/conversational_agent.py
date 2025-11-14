@@ -86,7 +86,8 @@ class ConversationalMinecraftAgent:
     5. Learn from experience and adapt behavior
     """
     
-    def __init__(self, openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True):
+    def __init__(self, openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True, 
+                 save_screenshots: bool = True, screenshots_folder: str = "screenshots"):
         """
         Initialize the conversational agent.
         
@@ -94,6 +95,8 @@ class ConversationalMinecraftAgent:
             openai_api_key: OpenAI API key for chat functionality
             model: OpenAI model to use (gpt-4o-mini, gpt-4o, o1-mini, etc.)
             auto_focus: Whether to automatically focus Minecraft before each command
+            save_screenshots: Whether to save screenshots during analysis
+            screenshots_folder: Folder to save screenshots in
         """
         self.openai_api_key = openai_api_key
         self.model = model
@@ -111,7 +114,7 @@ class ConversationalMinecraftAgent:
         # Vision and intelligence components (SIMA architecture)
         if HAS_VISION:
             try:
-                self.vision_system = MinecraftVision()
+                self.vision_system = MinecraftVision(save_screenshots, screenshots_folder)
                 self.task_planner = IntelligentTaskPlanner(self.vision_system)
                 self.enable_vision = True
                 logger.info("Vision system and intelligent task planner initialized")
@@ -276,6 +279,10 @@ Be conversational but include action keywords so the system knows what to do!"""
             print("👁️  Computer Vision: ENABLED")
             print("🧠 Intelligent Planning: ENABLED")
             print("📊 Experience Learning: ENABLED")
+            if self.vision_system.save_screenshots:
+                print(f"📸 Screenshot Saving: ENABLED ({self.vision_system.screenshots_folder})")
+            else:
+                print("📸 Screenshot Saving: DISABLED")
         else:
             print("⚠️  Computer Vision: DISABLED (install cv2, numpy, mss)")
             print("   For full vision: pip install opencv-python numpy mss")
@@ -382,7 +389,10 @@ Be conversational but include action keywords so the system knows what to do!"""
         # Step 1: Vision System - Analyze current game state
         if self.enable_vision and self.vision_system:
             print("👁️  Analyzing visual state...")
-            game_state = self.vision_system.analyze_current_situation()
+            # Save annotated screenshot for complex instructions or vision questions
+            save_annotated = any(phrase in instruction.lower() for phrase in 
+                               ["what do you see", "describe", "situation", "analyze", "vision"])
+            game_state = self.vision_system.analyze_current_situation(save_annotated, instruction)
             situation_desc = self.vision_system.get_situation_description()
             
             # Store experience for learning
@@ -480,8 +490,91 @@ Be conversational but include action keywords so the system knows what to do!"""
             return f"OpenAI error, using basic mode: {fallback_response}"
     
     def _parse_basic_command(self, instruction: str) -> str:
-        """Parse basic commands without AI."""
+        """Parse basic commands without AI, including vision-based queries."""
         instruction_lower = instruction.lower()
+        
+        # Check for vision-related questions first
+        if any(phrase in instruction_lower for phrase in ["what do you see", "what can you see", "describe", "look around", "what's visible"]):
+            if self.enable_vision and self.vision_system:
+                print("👁️  Analyzing what I can see...")
+                game_state = self.vision_system.analyze_current_situation()
+                situation_desc = self.vision_system.get_situation_description()
+                return f"Here's what I can see:\n{situation_desc}\n\nDetailed analysis:\n" \
+                       f"• Health: {game_state.health:.1f}%\n" \
+                       f"• Hunger: {game_state.hunger:.1f}%\n" \
+                       f"• Currently looking at: {game_state.current_block}\n" \
+                       f"• Time of day: {game_state.time_of_day}\n" \
+                       f"• Nearby entities: {', '.join(game_state.nearby_entities) if game_state.nearby_entities else 'None detected'}"
+            else:
+                return "Sorry, I don't have vision capabilities enabled. Install opencv-python, numpy, and mss to enable vision."
+        
+        # Check for situation questions
+        if any(phrase in instruction_lower for phrase in ["what's my situation", "my situation", "how am i", "current situation"]):
+            if self.enable_vision and self.vision_system:
+                print("👁️  Analyzing your current situation...")
+                game_state = self.vision_system.analyze_current_situation()
+                situation_desc = self.vision_system.get_situation_description()
+                return f"Current situation analysis:\n{situation_desc}\n\nStatus summary:\n" \
+                       f"• Health: {game_state.health:.1f}% ({'Excellent' if game_state.health > 80 else 'Good' if game_state.health > 50 else 'Low'})\n" \
+                       f"• Hunger: {game_state.hunger:.1f}% ({'Full' if game_state.hunger > 80 else 'Satisfied' if game_state.hunger > 50 else 'Hungry'})\n" \
+                       f"• Holding: {game_state.item_in_hand}\n" \
+                       f"• Environment: {game_state.time_of_day} time, looking at {game_state.current_block}"
+            else:
+                return "I can't analyze your situation without vision capabilities."
+        
+        # Check for time-related questions
+        if any(phrase in instruction_lower for phrase in ["is it night", "is it day", "what time", "time of day"]):
+            if self.enable_vision and self.vision_system:
+                print("👁️  Checking time of day...")
+                game_state = self.vision_system.analyze_current_situation()
+                return f"It's currently {game_state.time_of_day} time in the game."
+            else:
+                return "I can't see the game to check the time. Vision system not available."
+        
+        # Check for health/hunger questions
+        if any(phrase in instruction_lower for phrase in ["how much health", "health level", "am i healthy", "my health"]):
+            if self.enable_vision and self.vision_system:
+                print("👁️  Checking your health...")
+                game_state = self.vision_system.analyze_current_situation()
+                health_status = "excellent" if game_state.health > 80 else "good" if game_state.health > 50 else "low" if game_state.health > 20 else "critical"
+                return f"Your health is {health_status} at {game_state.health:.1f}%"
+            else:
+                return "I can't see your health bar. Vision system not available."
+        
+        if any(phrase in instruction_lower for phrase in ["how hungry", "hunger level", "am i hungry", "my hunger", "need food"]):
+            if self.enable_vision and self.vision_system:
+                print("👁️  Checking your hunger...")
+                game_state = self.vision_system.analyze_current_situation()
+                hunger_status = "full" if game_state.hunger > 80 else "satisfied" if game_state.hunger > 50 else "hungry" if game_state.hunger > 20 else "starving"
+                return f"You are {hunger_status} - hunger level at {game_state.hunger:.1f}%"
+            else:
+                return "I can't see your hunger bar. Vision system not available."
+        
+        # Check for inventory/hand questions
+        if any(phrase in instruction_lower for phrase in ["what am i holding", "what's in my hand", "what do i have", "holding"]):
+            if self.enable_vision and self.vision_system:
+                print("👁️  Analyzing what you're holding...")
+                game_state = self.vision_system.analyze_current_situation()
+                hand_item = game_state.item_in_hand
+                
+                if hand_item == "empty hand":
+                    return "Your hands are empty - you're not holding anything."
+                elif hand_item == "unknown":
+                    return "I can see you're holding something, but I can't identify exactly what it is yet."
+                else:
+                    return f"You appear to be holding: {hand_item}"
+            else:
+                return "I can't see your inventory or hands. Vision system not available."
+        
+        # Check for inventory questions
+        if "inventory" in instruction_lower or "hotbar" in instruction_lower:
+            if self.enable_vision and self.vision_system:
+                print("👁️  Analyzing your hotbar...")
+                game_state = self.vision_system.analyze_current_situation()
+                filled_slots = sum(1 for item in game_state.hotbar_items if item != "empty")
+                return f"I can see your hotbar has {filled_slots} out of 9 slots filled. You're currently holding: {game_state.item_in_hand}. For detailed item identification, I need more advanced vision capabilities."
+            else:
+                return "I can't see your inventory. Vision system not available."
         
         # Check for focus commands (check this FIRST before other commands)
         if "focus" in instruction_lower and "minecraft" in instruction_lower:
@@ -1295,7 +1388,9 @@ Be conversational but include action keywords so the system knows what to do!"""
             print(f"   ❌ Error executing planned action: {e}")
             logger.error(f"Error in planned action execution: {e}")
     
-def start_conversational_agent(openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True) -> None:
+def start_conversational_agent(openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", 
+                              auto_focus: bool = True, save_screenshots: bool = True, 
+                              screenshots_folder: str = "screenshots") -> None:
     """
     Start the conversational Minecraft agent.
     
@@ -1303,8 +1398,10 @@ def start_conversational_agent(openai_api_key: Optional[str] = None, model: str 
         openai_api_key: Optional OpenAI API key for enhanced chat
         model: OpenAI model to use
         auto_focus: Whether to automatically focus Minecraft before each command
+        save_screenshots: Whether to save screenshots during analysis
+        screenshots_folder: Folder to save screenshots in
     """
-    agent = ConversationalMinecraftAgent(openai_api_key, model, auto_focus)
+    agent = ConversationalMinecraftAgent(openai_api_key, model, auto_focus, save_screenshots, screenshots_folder)
     agent.start_conversation()
 
 
