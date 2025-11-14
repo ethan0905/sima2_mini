@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 __all__ = [
     "EnvironmentConfig", "AgentConfig", "TrainingConfig", 
-    "ExperienceConfig", "SIMAConfig", "load_config", "save_config"
+    "ExperienceConfig", "MinecraftConfig", "SIMAConfig", "load_config", "save_config"
 ]
 
 
@@ -15,7 +15,7 @@ class EnvironmentConfig:
     """Configuration for the game environment."""
     
     # Environment type
-    env_type: str = "dummy"  # "dummy", "real_game", etc.
+    env_type: str = "dummy"  # "dummy", "minecraft", "real_game", etc.
     
     # Dummy environment settings
     grid_size: int = 5
@@ -37,6 +37,36 @@ class EnvironmentConfig:
             raise ValueError("grid_size must be positive")
         if self.max_steps <= 0:
             raise ValueError("max_steps must be positive")
+
+
+@dataclass
+class MinecraftConfig:
+    """Configuration for Minecraft environment."""
+    
+    # Connection method
+    use_minerl: bool = True           # if False, fall back to raw keyboard/mouse control
+    env_id: str = "MineRLTreechop-v0" # MineRL environment ID
+    
+    # Frame settings
+    frame_width: int = 160
+    frame_height: int = 120
+    frame_skip: int = 4               # number of game frames per agent step
+    
+    # Episode settings
+    max_episode_steps: int = 1000
+    
+    # Raw control settings (when use_minerl=False)
+    game_window_title: str = "Minecraft"
+    control_sensitivity: float = 1.0
+    
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if self.frame_width <= 0 or self.frame_height <= 0:
+            raise ValueError("Frame dimensions must be positive")
+        if self.frame_skip <= 0:
+            raise ValueError("frame_skip must be positive")
+        if self.max_episode_steps <= 0:
+            raise ValueError("max_episode_steps must be positive")
 
 
 @dataclass
@@ -142,6 +172,7 @@ class SIMAConfig:
     agent: AgentConfig = field(default_factory=AgentConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     experience: ExperienceConfig = field(default_factory=ExperienceConfig)
+    minecraft: MinecraftConfig = field(default_factory=MinecraftConfig)
     
     # Global settings
     experiment_name: str = "sima_experiment"

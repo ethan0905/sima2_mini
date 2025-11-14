@@ -7,7 +7,7 @@ import numpy as np
 
 __all__ = [
     "ScreenCapture", "InputController", "GameIOController", 
-    "DummyScreenCapture", "DummyInputController"
+    "DummyScreenCapture", "DummyInputController", "RawMinecraftController"
 ]
 
 
@@ -176,6 +176,169 @@ class DummyInputController:
         """Log mouse click."""
         self.actions_log.append({"type": "mouse_click", "x": x, "y": y, "button": button})
         print(f"[DummyInput] Mouse click: ({x}, {y}) {button}")
+
+
+class RawMinecraftController:
+    """
+    Controller for interacting with Minecraft using raw input control.
+    
+    This class provides Minecraft-specific action translation and screen capture
+    for direct control of the Minecraft client. It maps high-level game actions
+    to keyboard/mouse inputs and captures the game screen.
+    
+    TODO: This is currently a stub implementation. For production use:
+    - Implement actual screen capture using libraries like mss or pyautogui
+    - Add keyboard/mouse control using pynput or pyautogui
+    - Handle Minecraft window detection and focus
+    - Add action queuing and timing control
+    - Implement inventory management and menu navigation
+    """
+    
+    def __init__(self, minecraft_window_title: str = "Minecraft"):
+        """
+        Initialize the raw Minecraft controller.
+        
+        Args:
+            minecraft_window_title: Title of the Minecraft window to control
+        """
+        self.minecraft_window_title = minecraft_window_title
+        self.screen_capture = DummyScreenCapture(width=854, height=480)  # Default Minecraft resolution
+        self.input_controller = DummyInputController()
+        
+        # Minecraft-specific key mappings
+        self.minecraft_keys = {
+            "forward": "w",
+            "backward": "s", 
+            "left": "a",
+            "right": "d",
+            "jump": "space",
+            "sneak": "shift",
+            "attack": "left_click",
+            "use": "right_click",
+            "inventory": "e",
+            "chat": "t",
+            "drop": "q",
+            "sprint": "ctrl",
+            "hotbar_1": "1",
+            "hotbar_2": "2",
+            "hotbar_3": "3",
+            "hotbar_4": "4",
+            "hotbar_5": "5",
+            "hotbar_6": "6",
+            "hotbar_7": "7",
+            "hotbar_8": "8",
+            "hotbar_9": "9",
+        }
+        
+    def capture_screen(self) -> np.ndarray:
+        """
+        Capture the current Minecraft game screen.
+        
+        Returns:
+            RGB image array of the Minecraft window
+            
+        TODO: Implement actual window capture:
+        - Find Minecraft window by title
+        - Capture window content (not full screen)
+        - Handle window not found/minimized cases
+        - Resize/crop to standard resolution
+        """
+        # Stub: return dummy screen capture
+        return self.screen_capture.capture()
+        
+    def execute_minecraft_action(self, action: Dict[str, Any]) -> None:
+        """
+        Execute a high-level Minecraft action.
+        
+        Args:
+            action: Minecraft action dictionary. Supported formats:
+                {"type": "move", "direction": "forward", "duration": 0.5}
+                {"type": "look", "yaw": 15, "pitch": -10}
+                {"type": "attack", "duration": 0.1} 
+                {"type": "use", "target": "block"}
+                {"type": "hotbar", "slot": 1}
+        
+        TODO: Implement actual action execution:
+        - Convert actions to appropriate key/mouse events
+        - Handle action timing and duration
+        - Queue actions for smooth execution
+        - Add error handling for invalid actions
+        """
+        action_type = action.get("type", "noop")
+        
+        if action_type == "move":
+            direction = action.get("direction", "forward")
+            duration = action.get("duration", 0.1)
+            
+            if direction in self.minecraft_keys:
+                key = self.minecraft_keys[direction]
+                self.input_controller.key_press(key)
+                # TODO: Schedule key release after duration
+                print(f"[MinecraftController] Moving {direction} for {duration}s")
+            
+        elif action_type == "look":
+            yaw = action.get("yaw", 0)  # Horizontal rotation
+            pitch = action.get("pitch", 0)  # Vertical rotation
+            
+            # TODO: Convert rotation to mouse movement
+            # This would involve calculating relative mouse movement
+            # based on current sensitivity settings
+            print(f"[MinecraftController] Looking yaw={yaw}, pitch={pitch}")
+            
+        elif action_type == "attack":
+            duration = action.get("duration", 0.1)
+            # TODO: Send left mouse button press/release
+            print(f"[MinecraftController] Attacking for {duration}s")
+            
+        elif action_type == "use":
+            target = action.get("target", "")
+            # TODO: Send right mouse button press/release
+            print(f"[MinecraftController] Using on {target}")
+            
+        elif action_type == "hotbar":
+            slot = action.get("slot", 1)
+            if 1 <= slot <= 9:
+                key = str(slot)
+                self.input_controller.key_press(key)
+                print(f"[MinecraftController] Selected hotbar slot {slot}")
+                
+        elif action_type == "inventory":
+            self.input_controller.key_press(self.minecraft_keys["inventory"])
+            print(f"[MinecraftController] Opening inventory")
+            
+        else:
+            print(f"[MinecraftController] Unknown action type: {action_type}")
+    
+    def get_minecraft_observation(self) -> Dict[str, Any]:
+        """
+        Get current Minecraft game state as an observation.
+        
+        Returns:
+            Dictionary containing:
+            - "pixels": Screen capture as numpy array
+            - "info": Any additional game state info
+            
+        TODO: Enhance observation with:
+        - OCR text extraction for health/hunger/items
+        - Minimap analysis if visible
+        - Chat message extraction
+        - Inventory state detection
+        """
+        pixels = self.capture_screen()
+        
+        # TODO: Extract additional game state information
+        info = {
+            "window_focused": True,  # TODO: Check if Minecraft window is active
+            "game_mode": "unknown",  # TODO: Detect creative/survival mode
+            "health": 20,  # TODO: OCR health bar
+            "hunger": 20,  # TODO: OCR hunger bar
+            "selected_slot": 1,  # TODO: Detect selected hotbar slot
+        }
+        
+        return {
+            "pixels": pixels,
+            "info": info
+        }
 
 
 # TODO: Real implementations would use:

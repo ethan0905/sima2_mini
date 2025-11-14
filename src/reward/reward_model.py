@@ -251,6 +251,12 @@ class SimpleRewardModel(RewardModel):
             
             return max(0.0, progress_reward)
         
+        # Minecraft-specific progress indicators
+        if "minerl_info" in final_info:
+            minecraft_progress = self._calculate_minecraft_progress(initial_info, final_info)
+            if minecraft_progress > 0:
+                return minecraft_progress
+        
         # TODO: Add other progress indicators:
         # - Items collected
         # - Areas explored
@@ -258,6 +264,71 @@ class SimpleRewardModel(RewardModel):
         # - Health remaining
         
         return 0.0
+
+    def _calculate_minecraft_progress(self, initial_info: Dict, final_info: Dict) -> float:
+        """
+        Calculate progress reward for Minecraft-specific tasks.
+        
+        Args:
+            initial_info: Episode start info
+            final_info: Episode end info
+            
+        Returns:
+            Progress-based reward value
+        """
+        progress_reward = 0.0
+        
+        # Get MineRL info if available
+        initial_minecraft = initial_info.get("minerl_info", {})
+        final_minecraft = final_info.get("minerl_info", {})
+        
+        # Reward for inventory gains
+        initial_inventory = initial_minecraft.get("inventory", {})
+        final_inventory = final_minecraft.get("inventory", {})
+        
+        for item, final_count in final_inventory.items():
+            initial_count = initial_inventory.get(item, 0)
+            item_gain = final_count - initial_count
+            
+            if item_gain > 0:
+                # Different items have different values
+                item_values = {
+                    "log": 0.5,  # Wood logs
+                    "log2": 0.5,  # Other wood types
+                    "cobblestone": 0.3,
+                    "coal": 0.8,
+                    "iron_ore": 1.5,
+                    "diamond": 5.0,
+                    "crafting_table": 1.0,
+                    "wooden_pickaxe": 1.2,
+                    "stone_pickaxe": 2.0,
+                    "iron_pickaxe": 3.0,
+                }
+                
+                item_value = item_values.get(item, 0.1)  # Default small value
+                progress_reward += item_gain * item_value
+        
+        # Reward for health preservation
+        initial_health = initial_minecraft.get("life", 20)
+        final_health = final_minecraft.get("life", 20)
+        
+        if final_health >= initial_health:
+            progress_reward += 0.5  # Bonus for not taking damage
+        
+        # Reward for position changes (exploration)
+        initial_pos = initial_minecraft.get("pov", {}).get("position", [0, 0, 0])
+        final_pos = final_minecraft.get("pov", {}).get("position", [0, 0, 0])
+        
+        if len(initial_pos) == 3 and len(final_pos) == 3:
+            # Calculate horizontal distance moved
+            horizontal_distance = ((final_pos[0] - initial_pos[0])**2 + 
+                                 (final_pos[2] - initial_pos[2])**2)**0.5
+            
+            # Small reward for exploration (capped to prevent reward hacking)
+            exploration_reward = min(2.0, horizontal_distance * 0.01)
+            progress_reward += exploration_reward
+        
+        return progress_reward * self.progress_reward_scale
 
 
 # TODO: Learned reward model would look like:

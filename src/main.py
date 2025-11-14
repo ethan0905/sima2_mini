@@ -20,7 +20,8 @@ from .utils.seed import set_random_seed
 
 # Component imports
 from .env.dummy_env import DummyGameEnv
-from .env.vision import DummyVisionEncoder, FlattenEncoder
+from .env.minecraft_env import MinecraftEnv
+from .env.vision import DummyVisionEncoder, FlattenEncoder, MinecraftVisionEncoder
 from .agent.policy import RandomPolicy, EpsilonGreedyPolicy, MLPPolicy
 from .agent.agent import Agent
 from .tasks.task_setter import TaskSetter
@@ -54,6 +55,8 @@ def create_components(config: SIMAConfig):
             max_steps=config.environment.max_steps,
             goal_reward=config.environment.goal_reward
         )
+    elif config.environment.env_type == "minecraft":
+        env = MinecraftEnv(config=config.minecraft)
     else:
         raise ValueError(f"Unsupported environment type: {config.environment.env_type}")
     
@@ -66,6 +69,13 @@ def create_components(config: SIMAConfig):
         )
     elif config.agent.encoder_type == "flatten":
         encoder = FlattenEncoder(normalize_pixels=config.environment.normalize_observations)
+    elif config.agent.encoder_type == "minecraft":
+        encoder = MinecraftVisionEncoder(
+            frame_size=config.minecraft.frame_size,
+            feature_dim=config.agent.encoder_feature_dim,
+            use_cnn=config.minecraft.use_vision_cnn,
+            include_info_features=True
+        )
     else:
         raise ValueError(f"Unsupported encoder type: {config.agent.encoder_type}")
     
@@ -330,6 +340,14 @@ def main() -> int:
         help="Operation mode"
     )
     
+    # Environment selection
+    parser.add_argument(
+        "--env", "--game",
+        choices=["dummy", "minecraft"],
+        default="dummy",
+        help="Environment type to use"
+    )
+    
     # Configuration
     parser.add_argument(
         "--config",
@@ -397,6 +415,8 @@ def main() -> int:
             print("Using baseline configuration")
         
         # Override config with command line arguments
+        if args.env:
+            config.environment.env_type = args.env
         if args.generations:
             config.training.num_generations = args.generations
         if args.episodes_per_gen:

@@ -155,6 +155,49 @@ class TaskSetter:
                 "base_reward": 3.0,
                 "max_steps": 150,
                 "difficulty": "hard"
+            },
+            # Minecraft-specific tasks
+            {
+                "id_prefix": "collect_wood",
+                "description_template": "Find and collect wood blocks by punching trees",
+                "base_reward": 6.0,
+                "max_steps": 200,
+                "difficulty": "easy"
+            },
+            {
+                "id_prefix": "look_around",
+                "description_template": "Look around and observe the environment",
+                "base_reward": 2.0,
+                "max_steps": 50,
+                "difficulty": "easy"
+            },
+            {
+                "id_prefix": "build_pillar",
+                "description_template": "Build a pillar using collected blocks",
+                "base_reward": 8.0,
+                "max_steps": 300,
+                "difficulty": "medium"
+            },
+            {
+                "id_prefix": "craft_tools",
+                "description_template": "Craft basic tools from collected materials",
+                "base_reward": 10.0,
+                "max_steps": 400,
+                "difficulty": "hard"
+            },
+            {
+                "id_prefix": "survive_night",
+                "description_template": "Survive until dawn while avoiding monsters",
+                "base_reward": 12.0,
+                "max_steps": 500,
+                "difficulty": "hard"
+            },
+            {
+                "id_prefix": "find_diamonds",
+                "description_template": "Mine down and find diamond ore",
+                "base_reward": 15.0,
+                "max_steps": 600,
+                "difficulty": "hard"
             }
         ]
 

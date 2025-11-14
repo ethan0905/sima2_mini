@@ -17,7 +17,30 @@ class Observation(TypedDict):
     info: Dict[str, Any]  # Additional state information
 
 
-Action = Dict[str, Any]  # e.g. keys/mouse movements, or discrete actions
+Action = Dict[str, Any]
+"""
+Generic action dictionary for game environments.
+
+For different environments, the action format varies:
+
+DummyGameEnv:
+    {"move": "up|down|left|right|noop", "type": "discrete"}
+
+MinecraftEnv:
+    {
+        "move_forward": float,     # -1..1 (negative = backward)
+        "strafe": float,           # -1..1 (negative = left, positive = right)
+        "jump": bool,              # True to jump
+        "attack": bool,            # True to attack/break blocks
+        "use": bool,               # True to use/place blocks
+        "camera_pitch": float,     # delta in degrees (up/down look)
+        "camera_yaw": float,       # delta in degrees (left/right look)
+        "inventory_slot": int      # 0-8 for hotbar selection
+    }
+    
+Real game environments would define their own action spaces based on
+the available controls and input methods.
+"""
 
 
 class GameEnv(ABC):

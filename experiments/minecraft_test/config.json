@@ -35,8 +35,8 @@
     "encoder_add_noise": false
   },
   "training": {
-    "num_generations": 20,
-    "episodes_per_generation": 5,
+    "num_generations": 1,
+    "episodes_per_generation": 1,
     "learning_frequency": 1,
     "evaluation_frequency": 5,
     "task_templates": [
@@ -63,7 +63,7 @@
     "learning_sample_size": 50,
     "priority_sampling": false
   },
-  "experiment_name": "sima_experiment",
+  "experiment_name": "minecraft_test",
   "random_seed": 42,
   "log_level": "INFO",
   "log_file": "logs/baseline_dummy_env.log",
