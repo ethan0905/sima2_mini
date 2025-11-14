@@ -60,9 +60,10 @@ class MinecraftEnv(GameEnv):
             self._init_minerl()
         else:
             if config.use_minerl and not HAS_MINERL:
-                raise ImportError(
+                logger.warning(
                     "MineRL requested but not installed. "
-                    "Install with: pip install minerl"
+                    "Falling back to raw control mode. "
+                    "Install MineRL with: pip install minerl"
                 )
             logger.info("Using raw Minecraft control (not fully implemented)")
             self._init_raw_control()
@@ -127,7 +128,17 @@ class MinecraftEnv(GameEnv):
             # 1. Teleporting player to spawn
             # 2. Clearing inventory 
             # 3. Resetting world state if needed
-            self._last_obs = self._controller.capture_screen()
+            pixels = self._controller.capture_screen()
+            pixels = self._process_frame(pixels)
+            
+            self._last_obs = {
+                "pixels": pixels,
+                "info": {
+                    "position": [0, 64, 0],  # Default spawn position
+                    "inventory": {},
+                    "step_count": self._step_count
+                }
+            }
             logger.info("Reset raw Minecraft control (placeholder)")
             return self._last_obs
     
@@ -191,13 +202,25 @@ class MinecraftEnv(GameEnv):
         else:  # Raw control
             # TODO: implement step for raw control
             try:
-                self._controller.send_action(action)
+                self._controller.execute_minecraft_action(action)
                 
                 # Wait for action to complete
                 time.sleep(1.0 / 20.0)  # ~20 FPS
                 
                 # Capture new observation
-                observation = self._controller.capture_screen()
+                pixels = self._controller.capture_screen()
+                pixels = self._process_frame(pixels)
+                
+                observation = {
+                    "pixels": pixels,
+                    "info": {
+                        "position": [0, 64, 0],  # TODO: extract from screen/game state
+                        "inventory": {},  # TODO: extract inventory state
+                        "step_count": self._step_count,
+                        "action_taken": action,
+                        "control_method": "raw"
+                    }
+                }
                 
                 # Compute basic reward (placeholder)
                 reward = self._compute_raw_reward(action, observation)
@@ -206,11 +229,7 @@ class MinecraftEnv(GameEnv):
                 done = self._step_count >= self._max_steps
                 self._done = done
                 
-                info = {
-                    "step_count": self._step_count,
-                    "action_taken": action,
-                    "control_method": "raw"
-                }
+                info = observation["info"]
                 
                 self._last_obs = observation
                 

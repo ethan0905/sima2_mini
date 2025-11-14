@@ -348,6 +348,10 @@ class MinecraftVisionEncoder(ObservationEncoder):
             
         return self._feature_dim
 
+    def get_feature_dim(self) -> int:
+        """Get feature dimension (implementing abstract method)."""
+        return self.feature_dim
+
 
 # TODO: Production vision encoder would look like:
 # 

@@ -71,10 +71,9 @@ def create_components(config: SIMAConfig):
         encoder = FlattenEncoder(normalize_pixels=config.environment.normalize_observations)
     elif config.agent.encoder_type == "minecraft":
         encoder = MinecraftVisionEncoder(
-            frame_size=config.minecraft.frame_size,
+            target_size=(config.minecraft.frame_height, config.minecraft.frame_width),
             feature_dim=config.agent.encoder_feature_dim,
-            use_cnn=config.minecraft.use_vision_cnn,
-            include_info_features=True
+            use_cnn=True  # Default to CNN for Minecraft
         )
     else:
         raise ValueError(f"Unsupported encoder type: {config.agent.encoder_type}")
