@@ -1,0 +1,28 @@
+# Core dependencies (required)
+numpy>=1.24.0
+torch>=2.0.0
+dataclasses-json>=0.6.0
+pydantic>=2.0.0
+loguru>=0.7.0
+
+# MineRL dependencies (optional - for research environments)
+# minerl  # Uncomment to install MineRL for structured Minecraft environments
+
+# Conversational Agent Dependencies (recommended for chat agent)
+# openai     # For AI chat functionality 
+# pyautogui  # For keyboard/mouse automation
+# pynput     # For input handling  
+# mss        # For screen capture
+# pillow     # For image processing
+
+# Note: Uncomment the dependencies you need:
+# - For basic research: just core dependencies
+# - For conversational agent: uncomment openai, pyautogui, pynput, mss, pillow  
+# - For MineRL research: uncomment minerl
+
+# Development dependencies (optional)
+# pytest>=7.0.0
+# pytest-cov>=4.0.0
+# black>=23.0.0
+# ruff>=0.1.0
+# mypy>=1.5.0

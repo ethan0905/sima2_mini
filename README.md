@@ -1,22 +1,101 @@
-# SIMA-Like Agent
+# SIMA Minecraft Agent
 
-A modular AI agent that learns to play video games through self-improvement, inspired by Google's SIMA 2. Now with Minecraft support!
+Two powerful approaches to AI agents for Minecraft:
 
-## Overview
+## 🎮 Conversational Minecraft Agent (NEW!)
+**Chat with an AI that plays Minecraft for you!**
 
-This project implements the skeleton of a research application where an AI agent learns to play video games through a self-improvement cycle similar to Google's SIMA 2. The system includes:
+A conversational assistant that:
+- 💬 **Chats in natural language**: "Go mine that tree" or "Build a house here"
+- 🎮 **Controls real Minecraft**: Direct keyboard/mouse automation
+- 🤖 **Executes complex tasks**: Understands multi-step instructions
+- 🧠 **Learns from conversation**: Remembers context and preferences
 
+**Perfect for:** Playing Minecraft with an AI companion, automating repetitive tasks, learning Minecraft mechanics
+
+### Quick Start
+```bash
+# Install dependencies for chat agent
+pip install loguru mss pyautogui pynput openai
+
+# Check installation
+python minecraft_chat.py --check-deps
+
+# Start the conversational agent
+python minecraft_chat.py
+```
+
+### Usage Examples
+```bash
+# With OpenAI API key (recommended)
+export OPENAI_API_KEY="your-api-key"
+python minecraft_chat.py
+
+# Basic mode (no API key needed)
+python minecraft_chat.py
+```
+
+### Example Conversation
+```
+👤 You: Go forward and mine some wood
+🤖 Agent: I'll help you mine those trees! Moving forward and breaking the wood blocks.
+
+👤 You: Now build a small house with that wood
+🤖 Agent: Perfect! I'll use the wood we collected to build a cozy house. Starting with a 5x5 foundation...
+```
+
+### Available Actions
+- **Movement**: "go forward", "turn left", "walk backward" 
+- **Mining**: "break this block", "mine that tree", "dig down"
+- **Building**: "place a block", "build a wall", "make a platform"
+- **Complex**: "build a house", "find diamonds", "make a farm"
+
+## 🔬 Research Agent (Original)
+**Self-improving agent for AI research**
+
+A modular research framework inspired by Google's SIMA 2:
 - **Task Setter**: Proposes tasks with estimated rewards
 - **Agent**: Executes tasks in game environments  
 - **Reward Model**: Evaluates episode performance
 - **Self-Generated Experience**: Stores and manages episode data
 - **Self-Improvement Loop**: Orchestrates the learning cycle
 
-This virtuous cycle of iterative improvement paves the way for a future where agents can learn and grow with minimal human intervention, becoming open-ended learners in embodied AI.
+**Perfect for:** AI research, reinforcement learning experiments, academic studies
 
-**NEW**: The system now supports **Minecraft** as a game environment, enabling research into embodied AI in complex, open-world scenarios.
+## 🚀 Quick Start Options
 
-## Architecture
+### Option 1: Conversational Agent (Recommended for most users)
+```bash
+# Install dependencies
+pip install loguru mss pyautogui pynput openai
+
+# Start chatting with your Minecraft assistant  
+python minecraft_chat.py
+
+# Example conversation:
+# You: "go forward and mine some wood"
+# Agent: "I'll move forward and break those wood blocks for you!"
+```
+
+### Option 2: Research Agent (For AI researchers)  
+```bash
+# Basic installation
+pip install -e .
+
+# Train the research agent
+python -m src.main --mode train --env dummy --generations 5
+
+# Train with Minecraft (requires MineRL)
+pip install minerl
+python -m src.main --mode train --env minecraft --generations 3
+```
+
+## 📚 Detailed Documentation
+
+- **[Conversational Agent Setup](CONVERSATIONAL_AGENT.md)** - Complete guide for the chat-based Minecraft assistant
+- **[Research Agent Setup](SETUP.md)** - Detailed setup for AI research applications  
+
+## 🏗️ Architecture (Research Agent)
 
 ```
 ┌─────────────┐    ┌──────────────┐    ┌─────────────┐
@@ -32,72 +111,6 @@ This virtuous cycle of iterative improvement paves the way for a future where ag
 │Reward Model │◄────│ Experience  │────►│   Storage   │
 └─────────────┘     └─────────────┘     └─────────────┘
 ```
-
-## Installation
-
-### Basic Installation
-```bash
-pip install -e .
-```
-
-### For Development
-```bash
-pip install -e ".[dev]"
-```
-
-### For Minecraft Support (Optional)
-For MineRL environment support:
-```bash
-pip install minerl
-```
-
-Note: MineRL has additional dependencies including Java JDK 8. See the [MineRL installation guide](https://minerl.readthedocs.io/en/latest/tutorials/index.html) for detailed setup instructions.
-
-For raw Minecraft control (experimental):
-```bash
-pip install pyautogui pynput mss pillow
-```
-
-## Quick Start
-
-### Train the agent (dummy environment)
-```bash
-python -m src.main --mode train --generations 10 --episodes-per-gen 5
-```
-
-### Train the agent in Minecraft (MineRL)
-```bash
-python -m src.main --mode train --env minecraft --generations 5 --episodes-per-gen 3
-```
-
-### Run a single episode (dummy environment)
-```bash
-python -m src.main --mode play-once --task-id "reach_goal"
-```
-
-### Run a single Minecraft episode
-```bash
-python -m src.main --mode play-once --env minecraft --task-id "collect_wood"
-```
-
-### Test Minecraft environment only
-```bash
-python -m src.main --mode test-env --env minecraft
-```
-
-### Inspect stored experience
-```bash
-python -m src.main --mode inspect-buffer
-```
-
-## Project Structure
-
-```
-sima_like_agent/
-├── pyproject.toml
-├── README.md
-├── src/
-│   ├── main.py                    # Entry point and CLI
 │   ├── config/
 │   │   └── config.py             # Configuration classes
 │   ├── env/
