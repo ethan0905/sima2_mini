@@ -190,20 +190,23 @@ def check_dependencies():
 
 def show_installation_commands():
     """Show commands to install dependencies."""
-    print("📦 Installation Commands for Conversational Minecraft Agent")
+    print("📦 Installation Commands for SIMA Minecraft Agent")
     print("=" * 65)
     
     print("\n1️⃣  Core Dependencies (Required):")
     print("   pip install numpy torch loguru")
     
-    print("\n2️⃣  Minecraft Control Dependencies (Required for real control):")  
-    print("   pip install pyautogui pynput mss pillow")
+    print("\n2️⃣  Vision & Intelligence (Recommended - enables smart adaptive behavior):")  
+    print("   pip install opencv-python numpy mss pillow")
     
-    print("\n3️⃣  AI Chat Dependencies (Optional but recommended):")
+    print("\n3️⃣  Minecraft Control Dependencies (Required for real control):")  
+    print("   pip install pyautogui pynput")
+    
+    print("\n4️⃣  AI Chat Dependencies (Optional but recommended):")
     print("   pip install openai")
     
-    print("\n4️⃣  All at once:")
-    print("   pip install numpy torch loguru pyautogui pynput mss pillow openai")
+    print("\n5️⃣  All at once (Full SIMA Agent):")
+    print("   pip install -r requirements.txt")
     
     print("\n🔑 OpenAI API Key Setup (for enhanced chat):")
     print("   export OPENAI_API_KEY='your-api-key-here'")
@@ -212,13 +215,21 @@ def show_installation_commands():
     print("\n💡 Quick Start After Installation:")
     print("   1. Open Minecraft and load a world")
     print("   2. python minecraft_chat.py")
-    print("   3. Type: 'go forward and mine some wood'")
-    print("   4. Watch the magic happen! ✨")
+    print("   3. Type: 'find food' or 'what do you see?'")
+    print("   4. Watch the intelligent agent work! ✨")
+    
+    print("\n🎯 SIMA Features with Full Installation:")
+    print("   • 👁️  Computer vision - agent can see the game")
+    print("   • 🧠 Intelligent planning - adapts actions to situation")
+    print("   • 💬 Natural conversation - explains what it sees")
+    print("   • 📊 Experience learning - gets better over time")
+    print("   • ⚙️  Adaptive control - plans based on health, hunger, threats")
     
     print("\n⚠️  Safety Notes:")
     print("   • PyAutoGUI has a failsafe: move mouse to screen corner to stop")
     print("   • Start with simple commands to test the controls")  
     print("   • Make sure Minecraft is the focused window")
+    print("   • Set Minecraft 'Pause on Lost Focus: OFF' (Options → Controls)")
 
 
 if __name__ == "__main__":

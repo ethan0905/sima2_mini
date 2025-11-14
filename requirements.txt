@@ -5,19 +5,30 @@ dataclasses-json>=0.6.0
 pydantic>=2.0.0
 loguru>=0.7.0
 
+# SIMA Agent with Vision - Core AI and Chat
+openai>=1.0.0
+
+# Computer Vision and Image Processing (for intelligent vision system)
+opencv-python>=4.8.0
+Pillow>=10.0.0
+
+# Screen Capture and Control (for real Minecraft control)
+mss>=6.1.0
+pyautogui>=0.9.54
+pynput>=1.7.6
+
+# Optional: Enhanced Window Management
+pygetwindow>=0.0.9
+
+# Development and Configuration
+python-dotenv>=1.0.0
+
 # MineRL dependencies (optional - for research environments)
 # minerl  # Uncomment to install MineRL for structured Minecraft environments
 
-# Conversational Agent Dependencies (recommended for chat agent)
-# openai     # For AI chat functionality 
-# pyautogui  # For keyboard/mouse automation
-# pynput     # For input handling  
-# mss        # For screen capture
-# pillow     # For image processing
-
-# Note: Uncomment the dependencies you need:
-# - For basic research: just core dependencies
-# - For conversational agent: uncomment openai, pyautogui, pynput, mss, pillow  
+# Install Instructions:
+# For full SIMA agent with vision: pip install -r requirements.txt  
+# For basic research only: pip install numpy torch dataclasses-json pydantic loguru  
 # - For MineRL research: uncomment minerl
 
 # Development dependencies (optional)

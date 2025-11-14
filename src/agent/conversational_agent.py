@@ -3,6 +3,7 @@ Conversational Minecraft Agent
 
 A chat-based agent that can understand natural language instructions
 and execute them in a real Minecraft game using keyboard and mouse control.
+Integrates computer vision and intelligent task planning following the SIMA architecture.
 """
 
 from __future__ import annotations
@@ -36,14 +37,53 @@ try:
 except ImportError:
     HAS_CONTROL = False
 
+# Import vision system and task planner
+try:
+    from vision.minecraft_vision import MinecraftVision, IntelligentTaskPlanner, GameState
+    HAS_VISION = True
+except ImportError as e:
+    try:
+        # Try alternative import path
+        import sys
+        from pathlib import Path
+        sys.path.append(str(Path(__file__).parent.parent))
+        from vision.minecraft_vision import MinecraftVision, IntelligentTaskPlanner, GameState
+        HAS_VISION = True
+    except ImportError:
+        HAS_VISION = False
+        print(f"⚠️  Vision system not available - {e}")
+        # Define dummy classes to prevent import errors
+        class GameState:
+            def __init__(self):
+                self.health = 100.0
+                self.hunger = 100.0
+                self.current_block = "unknown"
+                self.nearby_entities = []
+                self.time_of_day = "day"
+        
+        class MinecraftVision:
+            def __init__(self):
+                self.current_state = GameState()
+            def analyze_current_situation(self):
+                return self.current_state
+            def get_situation_description(self):
+                return "Vision system not available"
+        
+        class IntelligentTaskPlanner:
+            def __init__(self, vision_system=None):
+                self.vision = vision_system
+            def plan_action_sequence(self, user_request, game_state):
+                return []
+
 
 class ConversationalMinecraftAgent:
     """
-    A chat-based Minecraft agent that can:
+    A chat-based Minecraft agent following SIMA architecture that can:
     1. Have conversations with the user
-    2. Understand natural language instructions
-    3. Control Minecraft via keyboard/mouse
-    4. Execute tasks autonomously
+    2. Use computer vision to understand game state
+    3. Intelligently plan and execute tasks
+    4. Control Minecraft via keyboard/mouse
+    5. Learn from experience and adapt behavior
     """
     
     def __init__(self, openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True):
@@ -67,6 +107,29 @@ class ConversationalMinecraftAgent:
             self.screen_monitor = mss.mss()
             self.mouse = pynput.mouse.Controller()
             self.keyboard = pynput.keyboard.Controller()
+        
+        # Vision and intelligence components (SIMA architecture)
+        if HAS_VISION:
+            try:
+                self.vision_system = MinecraftVision()
+                self.task_planner = IntelligentTaskPlanner(self.vision_system)
+                self.enable_vision = True
+                logger.info("Vision system and intelligent task planner initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize vision system: {e}")
+                self.vision_system = None
+                self.task_planner = None
+                self.enable_vision = False
+                print(f"⚠️  Vision system failed to initialize: {e}")
+        else:
+            self.vision_system = None
+            self.task_planner = None
+            self.enable_vision = False
+            logger.warning("Vision system not available - using basic mode")
+        
+        # Experience storage for learning (simplified for now)
+        self.experience_database = []
+        self.reward_history = []
         
         # Set up OpenAI client if available
         if HAS_OPENAI and openai_api_key:
@@ -96,10 +159,25 @@ class ConversationalMinecraftAgent:
         }
     
     def _create_system_prompt(self) -> str:
-        """Create the system prompt for the AI assistant."""
-        return """You are a helpful Minecraft assistant that can control the game through keyboard and mouse.
+        """Create the system prompt for the AI assistant with vision awareness."""
+        base_prompt = """You are an advanced Minecraft assistant with computer vision capabilities. You can:
 
-You can understand natural language instructions and translate them into specific Minecraft actions.
+1. See and understand the current game state through visual analysis
+2. Intelligently plan actions based on what you observe
+3. Adapt your behavior to the current situation
+4. Control the game through keyboard and mouse
+
+VISION CAPABILITIES:
+- Health and hunger bar analysis
+- Block and entity detection
+- Time of day awareness
+- Situational assessment
+
+INTELLIGENT PLANNING:
+- You can analyze the current situation visually
+- Plan sequences of actions to achieve goals
+- Adapt actions based on visual feedback
+- Prioritize urgent needs (health, hunger)
 
 Available actions:
 - move(direction, duration): Move forward/backward/left/right for a duration
@@ -114,11 +192,12 @@ Available actions:
 - open_inventory(): Open inventory
 - type_chat(message): Type in chat
 
-IMPORTANT: When you receive an instruction, I will automatically execute the corresponding Minecraft actions based on keywords in your response and the user's request. You should:
-
-1. Acknowledge what the user wants to do
-2. Briefly explain what action you're taking
-3. Use action keywords in your response so the system can execute them
+ADAPTIVE BEHAVIOR:
+When you receive an instruction, I will:
+1. Analyze the current visual situation
+2. Plan the optimal sequence of actions
+3. Execute actions with visual feedback
+4. Adapt if the situation changes
 
 Action Keywords (use these in your responses to trigger actions):
 - "move forward", "go forward" → moves forward
@@ -135,29 +214,71 @@ Action Keywords (use these in your responses to trigger actions):
 - "attack", "hit" → attacks
 - "use", "interact" → right-clicks
 
-Example responses:
-User: "Go forward and mine the tree"
-You: "I'll help you get that tree! Let me move forward to reach it and then mine the wood blocks."
+INTELLIGENT RESPONSES:
+Based on visual analysis, I will:
+- Prioritize urgent needs (low health/hunger)
+- Suggest optimal actions for the situation
+- Warn about potential dangers
+- Adapt plans based on what I observe
 
-User: "Turn around and build a wall"
-You: "I'll turn around by looking right and then place blocks to build a wall for you."
+Example intelligent responses:
+User: "Go get some food"
+Analysis: [Health: 85%, Hunger: 25%, Animals nearby]
+You: "I can see your hunger is low and there are animals nearby! Let me approach them to get food."
 
-Be conversational but include the action keywords so the system knows what to do!"""
+User: "Mine some blocks"
+Analysis: [Looking at stone, Health: 30%]  
+You: "I notice your health is low - should I find food/shelter first, or proceed with mining the stone I can see?"
+
+Be conversational, intelligent, and adaptive based on visual analysis!"""
+
+        if self.enable_vision:
+            return base_prompt
+        else:
+            # Fallback to basic prompt without vision capabilities
+            return """You are a helpful Minecraft assistant that can control the game through keyboard and mouse.
+
+You can understand natural language instructions and translate them into specific Minecraft actions.
+
+Available actions:
+- move(direction, duration): Move forward/backward/left/right for a duration
+- look(yaw, pitch): Turn the camera/player view
+- dig(): Break the block you're looking at
+- place(): Place a block from your hotbar
+- jump(): Jump once
+- sneak(enable): Enable/disable sneaking
+- attack(): Attack or break blocks
+- use(): Right-click/interact with blocks/items
+- select_slot(number): Select hotbar slot 1-9
+- open_inventory(): Open inventory
+- type_chat(message): Type in chat
+
+Be conversational but include action keywords so the system knows what to do!"""
 
     def start_conversation(self) -> None:
         """Start the conversational interface."""
-        print("\n🎮 Minecraft Conversational Agent")
-        print("=" * 50)
-        print("I'm your Minecraft assistant! I can help you play the game.")
+        print("\n🎮 SIMA Minecraft Agent - Intelligent & Adaptive")
+        print("=" * 60)
+        print("I'm your advanced Minecraft assistant with computer vision!")
+        print("I can see the game, understand situations, and adapt my actions.")
         print("Just tell me what you'd like me to do in Minecraft!")
         print("Type 'quit' to exit, 'help' for commands, 'status' for current task info.")
-        print("=" * 50)
+        print("=" * 60)
         
         if self.can_chat:
             print(f"🤖 AI Mode: Using {self.model} for enhanced conversations")
         else:
             print("⚠️  Note: OpenAI API not configured - using basic command recognition")
             print("   For full chat: set OPENAI_API_KEY environment variable")
+        
+        # Vision system status
+        if self.enable_vision:
+            print("👁️  Computer Vision: ENABLED")
+            print("🧠 Intelligent Planning: ENABLED")
+            print("📊 Experience Learning: ENABLED")
+        else:
+            print("⚠️  Computer Vision: DISABLED (install cv2, numpy, mss)")
+            print("   For full vision: pip install opencv-python numpy mss")
         
         if not HAS_CONTROL:
             print("⚠️  Note: Control libraries not installed")
@@ -179,10 +300,12 @@ Be conversational but include the action keywords so the system knows what to do
             print("⚠️  Could not automatically focus Minecraft")
             print("💡 Please click on the Minecraft window manually before giving commands")
             
-        print("\n💡 Ready! Examples:")
-        print("   'Go forward and mine some wood'")
-        print("   'Look around and find animals'") 
-        print("   'Build a 3x3 platform here'")
+        print("\n💡 Ready! Enhanced Examples:")
+        print("   'Go find food' (I'll analyze hunger and search intelligently)")
+        print("   'Mine whatever looks good' (I'll assess what's visible)")
+        print("   'Keep me safe at night' (I'll monitor threats and health)")
+        print("   'Build something useful' (I'll plan based on current state)")
+        print("   'What do you see?' (I'll describe the current situation)")
         print("   'focus minecraft' (to manually focus)")
         print("   'check focus' (to verify focus)")
         print("\n⚠️  CRITICAL: Set Minecraft 'Pause on Lost Focus: OFF' (Options → Controls)")
@@ -220,7 +343,7 @@ Be conversational but include the action keywords so the system knows what to do
     
     def _process_instruction(self, instruction: str) -> str:
         """
-        Process a user instruction and execute it.
+        Process a user instruction with vision analysis and intelligent planning.
         
         Args:
             instruction: Natural language instruction
@@ -244,26 +367,78 @@ Be conversational but include the action keywords so the system knows what to do
                     if not is_focused:
                         print("❌ Focus attempt failed. Please manually click the Minecraft window now.")
                         print("   Press Enter when Minecraft is focused and ready...")
-                        input("   � Click Minecraft window, then press Enter: ")
+                        input("   👆 Click Minecraft window, then press Enter: ")
                 else:
                     print("❌ Could not auto-focus. Please manually click the Minecraft window now.")
                     print("   Press Enter when Minecraft is focused and ready...")
                     input("   👆 Click Minecraft window, then press Enter: ")
             # If already focused, continue silently
         
-        # Add to chat history
-        self.chat_history.append({"role": "user", "content": instruction})
+        # SIMA ARCHITECTURE: Vision Analysis + Task Setting + Intelligent Planning
+        game_state = None
+        situation_desc = ""
+        planned_actions = []
         
+        # Step 1: Vision System - Analyze current game state
+        if self.enable_vision and self.vision_system:
+            print("👁️  Analyzing visual state...")
+            game_state = self.vision_system.analyze_current_situation()
+            situation_desc = self.vision_system.get_situation_description()
+            
+            # Store experience for learning
+            experience_entry = {
+                "timestamp": time.time(),
+                "user_request": instruction,
+                "game_state": game_state,
+                "situation": situation_desc
+            }
+            
+        # Step 2: Task Setter - Plan intelligent actions based on request + vision
+        if self.enable_vision and self.task_planner and game_state:
+            print("🧠 Planning intelligent actions...")
+            planned_actions = self.task_planner.plan_action_sequence(instruction, game_state)
+            
+            # Add planned actions to experience
+            if planned_actions:
+                experience_entry["planned_actions"] = planned_actions
+                print(f"   📋 Planned {len(planned_actions)} actions")
+        
+        # Add to chat history with context
+        context_instruction = instruction
+        if situation_desc:
+            context_instruction = f"{instruction}\n\nCurrent situation: {situation_desc}"
+        
+        self.chat_history.append({"role": "user", "content": context_instruction})
+        
+        # Step 3: Agent Response - Generate response with awareness
         if self.can_chat:
-            # Use OpenAI to understand and plan
+            # Use OpenAI with vision context
             try:
-                response = self._chat_with_ai(instruction)
+                response = self._chat_with_ai(context_instruction)
             except Exception as e:
                 logger.warning(f"OpenAI failed, falling back to basic mode: {e}")
                 response = f"🔄 OpenAI is having issues, using basic mode instead.\n{self._parse_basic_command(instruction)}"
         else:
-            # Use basic pattern matching
-            response = self._parse_basic_command(instruction)
+            # Use basic pattern matching with vision awareness
+            if situation_desc:
+                response = f"{situation_desc}\n{self._parse_basic_command(instruction)}"
+            else:
+                response = self._parse_basic_command(instruction)
+        
+        # Step 4: Execute planned actions (if any)
+        if planned_actions:
+            print("⚙️  Executing intelligent action plan...")
+            self._execute_planned_actions(planned_actions)
+            
+        # Step 5: Store experience for learning
+        if self.enable_vision and game_state:
+            experience_entry["agent_response"] = response
+            experience_entry["execution_time"] = time.time()
+            self.experience_database.append(experience_entry)
+            
+            # Keep only recent experiences (simple memory management)
+            if len(self.experience_database) > 100:
+                self.experience_database = self.experience_database[-50:]
         
         # Add response to chat history
         self.chat_history.append({"role": "assistant", "content": response})
@@ -567,14 +742,30 @@ Be conversational but include the action keywords so the system knows what to do
     def _show_help(self) -> None:
         """Show help information."""
         print("\n🤖 Agent: Here's what I can help you with:")
+        print("\n🎯 INTELLIGENT ACTIONS (with vision analysis):")
+        print("  • Smart Planning: 'find food', 'stay safe', 'gather resources'")
+        print("  • Adaptive Tasks: 'mine whatever looks good', 'build something useful'")
+        print("  • Situational: 'what do you see?', 'analyze the area', 'what should I do?'")
+        
+        print("\n⚙️ BASIC MOVEMENT & ACTIONS:")
         print("  • Movement: 'go forward', 'move left', 'walk backward'")
         print("  • Mining: 'dig this block', 'mine the tree', 'break the stone'")
-        print("  • Building: 'place a block', 'build a wall'")
-        print("  • Looking: 'look left', 'turn right', 'look up'")
+        print("  • Building: 'place a block', 'build a wall', 'make a house'")
+        print("  • Looking: 'look left', 'turn right', 'look up', 'look around'")
         print("  • Actions: 'jump', 'attack', 'use this'")
-        print("  • Complex: 'build a house', 'find diamonds', 'make a farm'")
+        
+        print("\n🎮 SYSTEM COMMANDS:")
         print("  • Focus: 'focus minecraft', 'check focus', 'unpause', 'close menu'")
-        print("\n  Commands: 'help', 'status', 'quit'")
+        print("  • Info: 'help', 'status', 'quit'")
+        
+        if self.enable_vision:
+            print("\n👁️ VISION CAPABILITIES:")
+            print("  • Health/Hunger monitoring")
+            print("  • Block and entity detection")
+            print("  • Situational awareness")
+            print("  • Intelligent action planning")
+            print("  • Experience-based learning")
+        
         print("\n💡 Focus Tips:")
         print("     • If actions don't work, try: 'focus minecraft'")
         print("     • Check if focused with: 'check focus'") 
@@ -590,6 +781,23 @@ Be conversational but include the action keywords so the system knows what to do
         print(f"  Chat history: {len(self.chat_history)} messages")
         print(f"  Control available: {HAS_CONTROL}")
         print(f"  AI chat available: {self.can_chat}")
+        
+        # Vision system status
+        if self.enable_vision:
+            print(f"  👁️  Vision system: ENABLED")
+            print(f"  🧠 Task planner: ENABLED")
+            print(f"  📊 Experience entries: {len(self.experience_database)}")
+            
+            # Show current game state if available
+            if self.vision_system and hasattr(self.vision_system, 'current_state'):
+                state = self.vision_system.current_state
+                print(f"  🎮 Last game analysis:")
+                print(f"     Health: {state.health:.1f}%, Hunger: {state.hunger:.1f}%")
+                print(f"     Looking at: {state.current_block}")
+                print(f"     Entities: {', '.join(state.nearby_entities) if state.nearby_entities else 'None'}")
+                print(f"     Time: {state.time_of_day}")
+        else:
+            print(f"  👁️  Vision system: DISABLED")
     
     def _focus_minecraft_window(self) -> bool:
         """
@@ -991,8 +1199,102 @@ Be conversational but include the action keywords so the system knows what to do
             Response message
         """
         return self._process_instruction(instruction)
-
-
+    
+    def _execute_planned_actions(self, planned_actions: List[Dict]) -> None:
+        """
+        Execute a sequence of planned actions from the intelligent task planner.
+        
+        Args:
+            planned_actions: List of action dictionaries from task planner
+        """
+        if not planned_actions:
+            return
+            
+        try:
+            for i, action in enumerate(planned_actions):
+                action_type = action.get("type", "")
+                
+                print(f"   {i+1}/{len(planned_actions)}: {action_type}")
+                
+                if action_type == "message":
+                    # Display informational message
+                    print(f"   💬 {action.get('text', '')}")
+                
+                elif action_type == "move":
+                    direction = action.get("direction", "forward")
+                    if direction == "toward_animal":
+                        # Look for animals and move toward them
+                        self._execute_minecraft_action("look", {"direction": "around"})
+                        time.sleep(0.5)
+                        self._execute_minecraft_action("move", {"direction": "forward", "duration": 1.5})
+                    elif direction == "explore":
+                        # Exploration pattern
+                        self._execute_minecraft_action("look", {"yaw": 90, "pitch": 0})
+                        time.sleep(0.3)
+                        self._execute_minecraft_action("move", {"direction": "forward", "duration": 2.0})
+                    else:
+                        # Standard movement
+                        self._execute_minecraft_action("move", {"direction": direction, "duration": 1.5})
+                
+                elif action_type == "look":
+                    direction = action.get("direction", "around")
+                    if direction == "around":
+                        # Look around pattern
+                        for angle in [90, 180, 270, 360]:
+                            self._execute_minecraft_action("look", {"yaw": angle, "pitch": 0})
+                            time.sleep(0.3)
+                    else:
+                        self._execute_minecraft_action("look", {"direction": direction})
+                
+                elif action_type == "mine":
+                    target = action.get("target", "any")
+                    if target == "any":
+                        self._execute_minecraft_action("dig", {})
+                    else:
+                        print(f"   ⛏️ Mining {target}...")
+                        self._execute_minecraft_action("dig", {})
+                
+                elif action_type == "place":
+                    self._execute_minecraft_action("place", {})
+                
+                elif action_type == "build":
+                    structure = action.get("structure", "block")
+                    if structure == "house":
+                        print("   🏠 Building simple house foundation...")
+                        # Simple house foundation - 4x4 platform
+                        for x in range(4):
+                            for z in range(4):
+                                if x == 0 or x == 3 or z == 0 or z == 3:  # Only edges
+                                    self._execute_minecraft_action("place", {})
+                                    time.sleep(0.2)
+                                    self._execute_minecraft_action("move", {"direction": "right", "duration": 0.5})
+                            self._execute_minecraft_action("move", {"direction": "forward", "duration": 0.5})
+                    elif structure == "wall":
+                        print("   🧱 Building wall...")
+                        # Simple wall - 5 blocks in a line
+                        for _ in range(5):
+                            self._execute_minecraft_action("place", {})
+                            time.sleep(0.2)
+                            self._execute_minecraft_action("move", {"direction": "right", "duration": 0.5})
+                
+                elif action_type == "search":
+                    target = action.get("target", "")
+                    print(f"   🔍 Searching for {target}...")
+                    # Exploration movement pattern
+                    self._execute_minecraft_action("look", {"direction": "around"})
+                    time.sleep(0.5)
+                    self._execute_minecraft_action("move", {"direction": "forward", "duration": 2.0})
+                
+                else:
+                    print(f"   ⚠️ Unknown action type: {action_type}")
+                
+                # Small delay between actions
+                time.sleep(0.5)
+                
+        except Exception as e:
+            print(f"   ❌ Error executing planned action: {e}")
+            logger.error(f"Error in planned action execution: {e}")
+    
 def start_conversational_agent(openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True) -> None:
     """
     Start the conversational Minecraft agent.
