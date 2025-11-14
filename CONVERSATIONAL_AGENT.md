@@ -1,14 +1,6 @@
-# 🎮 Conversational Minecraft Age### 2. Test the Agent
-```bash
-# Start the conversational agent (uses gpt-4o-mini by default)
-python minecraft_chat.py
+# 🎮 Conversational Minecraft Agent
 
-# Or with API key directly  
-python minecraft_chat.py --openai-key "your-key-here"
-
-# Or specify a different model (o1-mini, gpt-4o, etc.)
-python minecraft_chat.py --model o1-mini
-```
+A chat-based AI assistant that can understand natural language instructions and control Minecraft through keyboard and mouse input.
 
 ## 🎯 What This Agent Does
 
@@ -220,6 +212,37 @@ Type 'quit' to exit, 'help' for commands, 'status' for current task info.
 
 🤖 Agent: Goodbye! Happy crafting! 👋
 ```
+
+## 🎮 Minecraft Setup & Focus Management
+
+### Important Minecraft Setting
+To prevent Minecraft from pausing when you switch to the terminal:
+
+1. **Open Minecraft**
+2. **Go to Options → Controls**  
+3. **Find "Pause on Lost Focus"**
+4. **Set it to OFF**
+
+This allows the agent to control Minecraft while you chat in the terminal!
+
+### Window Management Commands
+The agent has special commands to handle focus issues:
+
+```
+"focus minecraft"          # Brings Minecraft window to front
+"unpause" or "close menu"  # Handles the pause menu if it opens
+```
+
+### Automatic Focus Management
+The agent automatically tries to focus Minecraft before executing actions using:
+- Window detection (finds Minecraft by title)
+- Screen center clicking (if window detection fails)
+- Alt+Tab / Cmd+Tab (as fallback)
+
+### If Focus Issues Persist
+- **Use windowed mode** instead of fullscreen for easier window management
+- **Manually click the Minecraft window** before giving commands
+- **Check the setting** "Pause on Lost Focus: OFF" in Minecraft
 
 ## 🎉 You're Ready!
 

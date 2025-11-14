@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 import threading
 import queue
 
-from ..utils.logging_utils import get_logger
+from utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -112,21 +112,35 @@ Available actions:
 - open_inventory(): Open inventory
 - type_chat(message): Type in chat
 
-When the user gives you an instruction:
-1. Acknowledge what they want to do
-2. Break it down into steps if complex
-3. Execute the actions needed
-4. Report back on what you accomplished
+IMPORTANT: When you receive an instruction, I will automatically execute the corresponding Minecraft actions based on keywords in your response and the user's request. You should:
 
-Be conversational and helpful. Ask for clarification if instructions are unclear.
+1. Acknowledge what the user wants to do
+2. Briefly explain what action you're taking
+3. Use action keywords in your response so the system can execute them
+
+Action Keywords (use these in your responses to trigger actions):
+- "move forward", "go forward" → moves forward
+- "move left", "go left" → moves left  
+- "move right", "go right" → moves right
+- "move back", "go back" → moves backward
+- "look left", "turn left" → turns camera left
+- "look right", "turn right" → turns camera right
+- "look up" → looks up
+- "look down" → looks down
+- "mine", "dig", "break" → breaks blocks
+- "place", "build" → places blocks
+- "jump" → jumps
+- "attack", "hit" → attacks
+- "use", "interact" → right-clicks
 
 Example responses:
-User: "Go forward and mine the tree in front of me"
-You: "I'll help you mine that tree! Let me move forward and start breaking the wood blocks."
+User: "Go forward and mine the tree"
+You: "I'll help you get that tree! Let me move forward to reach it and then mine the wood blocks."
 
-User: "Build a small house"
-You: "I'd be happy to help build a house! Could you tell me what materials you'd like me to use? I can see what's in your inventory and start with a simple structure."
-"""
+User: "Turn around and build a wall"
+You: "I'll turn around by looking right and then place blocks to build a wall for you."
+
+Be conversational but include the action keywords so the system knows what to do!"""
 
     def start_conversation(self) -> None:
         """Start the conversational interface."""
@@ -263,6 +277,14 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
             else:
                 return "Could not automatically focus Minecraft. Please click on the Minecraft window manually."
         
+        # Check for pause menu handling
+        if "unpause" in instruction_lower or ("close" in instruction_lower and "menu" in instruction_lower):
+            success = self._handle_minecraft_pause()
+            if success:
+                return "Handled Minecraft pause menu!"
+            else:
+                return "Could not handle pause menu automatically."
+        
         # Check for movement commands
         if any(word in instruction_lower for word in self.basic_commands["move"]):
             if "forward" in instruction_lower:
@@ -277,11 +299,15 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
             elif "right" in instruction_lower:
                 self._execute_minecraft_action("move", {"direction": "right", "duration": 2.0})
                 return "Moving right!"
+            else:
+                # Default forward movement for general "move" commands
+                self._execute_minecraft_action("move", {"direction": "forward", "duration": 2.0})
+                return "Moving forward!"
         
         # Check for mining/digging
         if any(word in instruction_lower for word in self.basic_commands["dig"]):
             self._execute_minecraft_action("dig", {})
-            return "Breaking the block in front of me!"
+            return "Mining/breaking the block in front of me!"
         
         # Check for jumping
         if any(word in instruction_lower for word in self.basic_commands["jump"]):
@@ -303,33 +329,81 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
                 self._execute_minecraft_action("look", {"yaw": 0, "pitch": 30})
                 return "Looking down!"
         
-        return f"I understand you want me to: {instruction}. I'll try my best to help! (Note: install OpenAI for better understanding)"
+        # Check for placing/building
+        if any(word in instruction_lower for word in self.basic_commands["place"]):
+            self._execute_minecraft_action("place", {})
+            return "Placing a block!"
+        
+        # Check for using/interacting
+        if any(word in instruction_lower for word in self.basic_commands["use"]):
+            self._execute_minecraft_action("use", {})
+            return "Using/interacting with the item in front of me!"
+        
+        # Check for attacking
+        if any(word in instruction_lower for word in self.basic_commands["attack"]):
+            self._execute_minecraft_action("attack", {})
+            return "Attacking!"
+        
+        return f"I understand you want me to: {instruction}. I'm not sure how to do that specific action yet. Try commands like 'go forward', 'mine', 'jump', etc."
     
     def _execute_actions_from_response(self, ai_response: str, original_instruction: str) -> None:
-        """Extract and execute actions from AI response."""
-        # This is a simplified version - in a full implementation,
-        # the AI would return structured action commands
-        
-        # For now, use basic keyword detection
+        """Extract and execute actions from AI response and original instruction."""
+        # Parse both the AI response and original instruction for action keywords
         response_lower = ai_response.lower()
+        instruction_lower = original_instruction.lower()
+        combined_text = f"{response_lower} {instruction_lower}"
         
-        # Look for action keywords in the AI response
-        if "move forward" in response_lower or "go forward" in response_lower:
+        logger.info(f"Parsing actions from: '{original_instruction}'")
+        
+        # Movement actions
+        if any(word in combined_text for word in ["move forward", "go forward", "walk forward"]):
             self._execute_minecraft_action("move", {"direction": "forward", "duration": 2.0})
+        elif any(word in combined_text for word in ["move back", "go back", "walk back"]):
+            self._execute_minecraft_action("move", {"direction": "backward", "duration": 2.0})
+        elif any(word in combined_text for word in ["move left", "go left", "walk left"]):
+            self._execute_minecraft_action("move", {"direction": "left", "duration": 2.0})
+        elif any(word in combined_text for word in ["move right", "go right", "walk right"]):
+            self._execute_minecraft_action("move", {"direction": "right", "duration": 2.0})
         
-        if "mine" in response_lower or "dig" in response_lower:
+        # Looking actions
+        if any(word in combined_text for word in ["look left", "turn left"]):
+            self._execute_minecraft_action("look", {"yaw": -45, "pitch": 0})
+        elif any(word in combined_text for word in ["look right", "turn right"]):
+            self._execute_minecraft_action("look", {"yaw": 45, "pitch": 0})
+        elif any(word in combined_text for word in ["look up"]):
+            self._execute_minecraft_action("look", {"yaw": 0, "pitch": -30})
+        elif any(word in combined_text for word in ["look down"]):
+            self._execute_minecraft_action("look", {"yaw": 0, "pitch": 30})
+        
+        # Mining/digging actions
+        if any(word in combined_text for word in ["mine", "dig", "break", "destroy"]):
             self._execute_minecraft_action("dig", {})
         
-        if "jump" in response_lower:
+        # Jumping
+        if "jump" in combined_text:
             self._execute_minecraft_action("jump", {})
         
-        # More sophisticated action parsing would be implemented here
+        # Placing blocks
+        if any(word in combined_text for word in ["place", "build", "put"]):
+            self._execute_minecraft_action("place", {})
+        
+        # Using/interacting
+        if any(word in combined_text for word in ["use", "interact", "right click"]):
+            self._execute_minecraft_action("use", {})
+        
+        # Attacking
+        if any(word in combined_text for word in ["attack", "hit", "fight"]):
+            self._execute_minecraft_action("attack", {})
     
     def _execute_minecraft_action(self, action_type: str, params: Dict) -> None:
         """Execute a Minecraft action via keyboard/mouse control."""
         if not HAS_CONTROL:
+            print(f"⚠️  Cannot execute {action_type} - control libraries not available")
             logger.warning("Cannot execute action - control libraries not available")
             return
+        
+        print(f"🎮 Executing {action_type} action with params: {params}")
+        logger.info(f"Executing {action_type} action: {params}")
         
         try:
             # Ensure Minecraft is focused
@@ -351,9 +425,11 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
                 self._attack()
             else:
                 logger.warning(f"Unknown action type: {action_type}")
+                print(f"⚠️  Unknown action type: {action_type}")
                 
         except Exception as e:
             logger.error(f"Error executing action {action_type}: {e}")
+            print(f"❌ Error executing action {action_type}: {e}")
     
     def _move(self, direction: str, duration: float) -> None:
         """Move the player in the specified direction."""
@@ -366,9 +442,11 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
         
         key = key_map.get(direction)
         if key:
-            self.keyboard.press(key)
+            # Use pyautogui for key presses for better reliability
+            pyautogui.keyDown(key)
             time.sleep(duration)
-            self.keyboard.release(key)
+            pyautogui.keyUp(key)
+            print(f"   ✅ Moved {direction} for {duration} seconds")
             logger.info(f"Moved {direction} for {duration} seconds")
     
     def _look(self, yaw: float, pitch: float) -> None:
@@ -380,6 +458,7 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
         dy = int(pitch * mouse_sensitivity)
         
         pyautogui.move(dx, dy, relative=True)
+        print(f"   ✅ Looked yaw={yaw}, pitch={pitch} (moved mouse {dx}, {dy})")
         logger.info(f"Looked yaw={yaw}, pitch={pitch}")
     
     def _dig(self) -> None:
@@ -387,26 +466,31 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
         pyautogui.mouseDown(button='left')
         time.sleep(0.5)  # Hold to break
         pyautogui.mouseUp(button='left')
+        print(f"   ✅ Mining/digging block (held left click for 0.5s)")
         logger.info("Executed dig action")
     
     def _jump(self) -> None:
         """Make the player jump."""
         pyautogui.press('space')
+        print(f"   ✅ Jumped!")
         logger.info("Executed jump")
     
     def _place(self) -> None:
         """Place a block from hotbar."""
         pyautogui.click(button='right')
+        print(f"   ✅ Placed block (right click)")
         logger.info("Executed place action")
     
     def _use(self) -> None:
         """Right-click/interact."""
         pyautogui.click(button='right')
+        print(f"   ✅ Used/interacted (right click)")
         logger.info("Executed use action")
     
     def _attack(self) -> None:
         """Attack/left-click."""
         pyautogui.click(button='left')
+        print(f"   ✅ Attacked (left click)")
         logger.info("Executed attack action")
     
     def _capture_screen(self) -> Optional[Image.Image]:
@@ -432,7 +516,9 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
         print("  • Looking: 'look left', 'turn right', 'look up'")
         print("  • Actions: 'jump', 'attack', 'use this'")
         print("  • Complex: 'build a house', 'find diamonds', 'make a farm'")
+        print("  • Focus: 'focus minecraft', 'unpause', 'close menu'")
         print("\n  Commands: 'help', 'status', 'quit'")
+        print("\n💡 Tip: Set Minecraft 'Pause on Lost Focus: OFF' in Options → Controls")
     
     def _show_status(self) -> None:
         """Show current status."""
@@ -539,21 +625,83 @@ You: "I'd be happy to help build a house! Could you tell me what materials you'd
             print("   Continuing with action...")
             time.sleep(1)  # Give user time to manually focus if needed
     
-    def _handle_minecraft_pause(self) -> None:
-        """Handle Minecraft pause menu if it's open."""
+    def _handle_minecraft_pause(self) -> bool:
+        """
+        Handle Minecraft pause menu if it's open.
+        
+        Returns:
+            True if handled/no pause detected, False if couldn't handle
+        """
         if not HAS_CONTROL:
-            return
+            return False
         
         try:
-            # Press Escape to close pause menu if it's open
-            # This is safe - if not paused, it will pause then immediately unpause
+            # Method 1: Try to detect pause menu and close it
+            # Press Escape twice to ensure we're not in pause menu
+            # First Escape: If in pause menu, closes it. If not, opens it.
+            # Second Escape: If first one opened it, this closes it. If first closed it, does nothing.
+            
+            logger.debug("Checking for Minecraft pause menu...")
+            
+            # Give Minecraft focus first
+            self._focus_minecraft_window()
+            time.sleep(0.1)
+            
+            # Double-tap escape to ensure we're not in pause menu
             pyautogui.press('escape')
             time.sleep(0.1)
-            pyautogui.press('escape') 
+            pyautogui.press('escape')  
             time.sleep(0.1)
+            
             logger.debug("Handled potential Minecraft pause menu")
+            return True
+            
         except Exception as e:
             logger.error(f"Error handling pause menu: {e}")
+            return False
+    
+    def _detect_minecraft_pause_menu(self) -> bool:
+        """
+        Try to detect if Minecraft pause menu is open using screen capture.
+        
+        Returns:
+            True if pause menu is detected, False otherwise
+        """
+        if not HAS_CONTROL:
+            return False
+            
+        try:
+            # Capture screen and look for pause menu indicators
+            screenshot = self._capture_screen()
+            if screenshot is None:
+                return False
+            
+            # Convert to grayscale for easier text detection
+            import numpy as np
+            screenshot_gray = screenshot.convert('L')
+            screenshot_array = np.array(screenshot_gray)
+            
+            # Look for common pause menu text patterns
+            # This is a simple approach - could be enhanced with OCR
+            
+            # For now, return False and rely on the escape key method
+            return False
+            
+        except Exception as e:
+            logger.debug(f"Could not detect pause menu: {e}")
+            return False
+    
+    def process_instruction(self, instruction: str) -> str:
+        """
+        Public method to process an instruction (for testing/API use).
+        
+        Args:
+            instruction: Natural language instruction
+            
+        Returns:
+            Response message
+        """
+        return self._process_instruction(instruction)
 
 
 def start_conversational_agent(openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini") -> None:

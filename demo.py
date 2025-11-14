@@ -189,6 +189,8 @@ def main():
         print("  2. Run training: python -m src.main --mode train")
         print("  3. Try a single episode: python -m src.main --mode play-once")
         print("  4. Inspect results: python -m src.main --mode inspect-buffer")
+        print("  5. For Minecraft control: python minecraft_chat.py")
+        print("     (Make sure Minecraft is running and 'Pause on Lost Focus: OFF')")
         
     except ImportError as e:
         print(f"Import error: {e}")

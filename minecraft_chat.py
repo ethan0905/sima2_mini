@@ -11,6 +11,9 @@ import os
 import sys
 from pathlib import Path
 
+# Add the src directory to Python path for imports
+sys.path.insert(0, str(Path(__file__).parent / "src"))
+
 def main():
     """Main entry point for the conversational agent."""
     parser = argparse.ArgumentParser(
@@ -80,7 +83,7 @@ Example conversations:
     
     # Import and start the agent
     try:
-        from src.agent.conversational_agent import start_conversational_agent
+        from agent.conversational_agent import start_conversational_agent
         start_conversational_agent(openai_api_key, args.model)
     except ImportError as e:
         print(f"❌ Import error: {e}")
