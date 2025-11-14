@@ -46,16 +46,18 @@ class ConversationalMinecraftAgent:
     4. Execute tasks autonomously
     """
     
-    def __init__(self, openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini"):
+    def __init__(self, openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True):
         """
         Initialize the conversational agent.
         
         Args:
             openai_api_key: OpenAI API key for chat functionality
             model: OpenAI model to use (gpt-4o-mini, gpt-4o, o1-mini, etc.)
+            auto_focus: Whether to automatically focus Minecraft before each command
         """
         self.openai_api_key = openai_api_key
         self.model = model
+        self.auto_focus = auto_focus
         self.chat_history: List[Dict[str, str]] = []
         self.current_task: Optional[str] = None
         self.task_status = "idle"  # idle, planning, executing, completed, failed
@@ -162,14 +164,28 @@ Be conversational but include the action keywords so the system knows what to do
             print("   Install with: pip install pyautogui pynput mss pillow")
             return
         
-        print("\n💡 Ready! Make sure Minecraft is open and focused.")
-        print("   Example: 'Go forward and mine some wood'")
-        print("   Example: 'Look around and find animals'")
-        print("   Example: 'Build a 3x3 platform here'")
-        print("\n⚠️  FOCUS TIP: If Minecraft pauses when you click terminal:")
-        print("   1. Set Minecraft to Windowed mode (not Fullscreen)")
-        print("   2. In Options → Controls → Set 'Pause on Lost Focus: OFF'")
-        print("   3. Or say 'focus minecraft' to refocus the game window")
+        # Initial Minecraft focus attempt
+        print("\n🎯 Attempting to focus Minecraft window...")
+        initial_focus_success = self._focus_minecraft_window()
+        if initial_focus_success:
+            time.sleep(0.5)
+            is_focused = self._verify_minecraft_focus()
+            if is_focused:
+                print("✅ Minecraft window focused and verified!")
+            else:
+                print("⚠️  Focus attempted but verification unclear")
+                print("💡 If commands don't work, manually click Minecraft window")
+        else:
+            print("⚠️  Could not automatically focus Minecraft")
+            print("💡 Please click on the Minecraft window manually before giving commands")
+            
+        print("\n💡 Ready! Examples:")
+        print("   'Go forward and mine some wood'")
+        print("   'Look around and find animals'") 
+        print("   'Build a 3x3 platform here'")
+        print("   'focus minecraft' (to manually focus)")
+        print("   'check focus' (to verify focus)")
+        print("\n⚠️  CRITICAL: Set Minecraft 'Pause on Lost Focus: OFF' (Options → Controls)")
         
         # Main conversation loop
         while True:
@@ -212,6 +228,29 @@ Be conversational but include the action keywords so the system knows what to do
         Returns:
             Response message
         """
+        # Automatically focus Minecraft before processing any instruction
+        if (self.auto_focus and HAS_CONTROL and 
+            not any(cmd in instruction.lower() for cmd in ["help", "status", "quit", "exit", "focus", "check"])):
+            
+            # Check if Minecraft is already focused
+            is_already_focused = self._verify_minecraft_focus()
+            if not is_already_focused:
+                print("⚠️  Minecraft is not focused. Attempting to focus it...")
+                focus_success = self._focus_minecraft_window()
+                
+                if focus_success:
+                    time.sleep(0.5)
+                    is_focused = self._verify_minecraft_focus()
+                    if not is_focused:
+                        print("❌ Focus attempt failed. Please manually click the Minecraft window now.")
+                        print("   Press Enter when Minecraft is focused and ready...")
+                        input("   � Click Minecraft window, then press Enter: ")
+                else:
+                    print("❌ Could not auto-focus. Please manually click the Minecraft window now.")
+                    print("   Press Enter when Minecraft is focused and ready...")
+                    input("   👆 Click Minecraft window, then press Enter: ")
+            # If already focused, continue silently
+        
         # Add to chat history
         self.chat_history.append({"role": "user", "content": instruction})
         
@@ -271,11 +310,25 @@ Be conversational but include the action keywords so the system knows what to do
         
         # Check for focus commands (check this FIRST before other commands)
         if "focus" in instruction_lower and "minecraft" in instruction_lower:
+            print("🎯 Manually focusing Minecraft...")
             success = self._focus_minecraft_window()
             if success:
-                return "Successfully focused Minecraft window!"
+                time.sleep(0.5)
+                is_focused = self._verify_minecraft_focus()
+                if is_focused:
+                    return "✅ Successfully focused Minecraft window and verified!"
+                else:
+                    return "⚠️  Attempted to focus Minecraft, but verification unclear. Please check manually."
             else:
-                return "Could not automatically focus Minecraft. Please click on the Minecraft window manually."
+                return "❌ Could not automatically focus Minecraft. Please click on the Minecraft window manually."
+        
+        # Check for focus verification
+        if "check focus" in instruction_lower or "verify focus" in instruction_lower:
+            is_focused = self._verify_minecraft_focus()
+            if is_focused:
+                return "✅ Minecraft is currently focused and ready for commands!"
+            else:
+                return "❌ Minecraft is not focused. Use 'focus minecraft' or click on the Minecraft window."
         
         # Check for pause menu handling
         if "unpause" in instruction_lower or ("close" in instruction_lower and "menu" in instruction_lower):
@@ -457,7 +510,11 @@ Be conversational but include the action keywords so the system knows what to do
         dx = int(yaw * mouse_sensitivity)
         dy = int(pitch * mouse_sensitivity)
         
-        pyautogui.move(dx, dy, relative=True)
+        # Use move instead of moveRel for better compatibility
+        current_pos = pyautogui.position()
+        new_x = current_pos.x + dx
+        new_y = current_pos.y + dy
+        pyautogui.moveTo(new_x, new_y)
         print(f"   ✅ Looked yaw={yaw}, pitch={pitch} (moved mouse {dx}, {dy})")
         logger.info(f"Looked yaw={yaw}, pitch={pitch}")
     
@@ -516,9 +573,12 @@ Be conversational but include the action keywords so the system knows what to do
         print("  • Looking: 'look left', 'turn right', 'look up'")
         print("  • Actions: 'jump', 'attack', 'use this'")
         print("  • Complex: 'build a house', 'find diamonds', 'make a farm'")
-        print("  • Focus: 'focus minecraft', 'unpause', 'close menu'")
+        print("  • Focus: 'focus minecraft', 'check focus', 'unpause', 'close menu'")
         print("\n  Commands: 'help', 'status', 'quit'")
-        print("\n💡 Tip: Set Minecraft 'Pause on Lost Focus: OFF' in Options → Controls")
+        print("\n💡 Focus Tips:")
+        print("     • If actions don't work, try: 'focus minecraft'")
+        print("     • Check if focused with: 'check focus'") 
+        print("     • Set Minecraft 'Pause on Lost Focus: OFF' in Options → Controls")
     
     def _show_status(self) -> None:
         """Show current status."""
@@ -533,7 +593,7 @@ Be conversational but include the action keywords so the system knows what to do
     
     def _focus_minecraft_window(self) -> bool:
         """
-        Try to focus the Minecraft window.
+        Try to focus the Minecraft window using multiple methods.
         
         Returns:
             True if successful, False otherwise
@@ -541,89 +601,318 @@ Be conversational but include the action keywords so the system knows what to do
         if not HAS_CONTROL:
             return False
         
+        import platform
+        system = platform.system()
+        
         try:
-            # Method 1: Try using pygetwindow with correct API
+            # Method 1: Platform-specific application switching
+            if system == "Darwin":  # macOS
+                try:
+                    print("   🍎 Trying macOS Minecraft focus (Java process)...")
+                    import subprocess
+                    
+                    # Use the working AppleScript that targets the Java process
+                    apple_script = '''
+                    tell application "System Events"
+                        if exists process "java" then
+                            tell process "java"
+                                set frontmost to true
+                                try
+                                    tell (first window whose name contains "Minecraft") to perform action "AXRaise"
+                                end try
+                            end tell
+                            return "success"
+                        else
+                            return "java_not_found"
+                        end if
+                    end tell
+                    '''
+                    
+                    result = subprocess.run(['osascript', '-e', apple_script], 
+                                          capture_output=True, text=True, timeout=5)
+                    
+                    if result.returncode == 0:
+                        output = result.stdout.strip()
+                        if "success" in output:
+                            time.sleep(0.7)  # Give time for app switch
+                            print("   ✅ Successfully focused Minecraft (Java process)")
+                            return True
+                        elif "java_not_found" in output:
+                            print("   ⚠️  Java process not found - is Minecraft running?")
+                        else:
+                            print(f"   ⚠️  Unexpected result: {output}")
+                    else:
+                        print(f"   ⚠️  AppleScript error: {result.stderr}")
+                        
+                except Exception as e:
+                    print(f"   ⚠️  AppleScript method failed: {e}")
+            
+            elif system == "Windows":  # Windows
+                try:
+                    print("   🪟 Trying Windows application switching...")
+                    import pygetwindow as gw
+                    
+                    # Find Minecraft window
+                    minecraft_windows = []
+                    for title in ["Minecraft", "minecraft"]:
+                        minecraft_windows.extend(gw.getWindowsWithTitle(title))
+                    
+                    if minecraft_windows:
+                        window = minecraft_windows[0]
+                        window.restore()  # Restore if minimized
+                        window.activate()  # Bring to front
+                        time.sleep(0.5)
+                        print(f"   ✅ Focused Minecraft window: '{window.title[:30]}...'")
+                        return True
+                    else:
+                        print("   ⚠️  No Minecraft window found")
+                        
+                except Exception as e:
+                    print(f"   ⚠️  Windows focus method failed: {e}")
+            
+            else:  # Linux
+                try:
+                    print("   🐧 Trying Linux window focus...")
+                    import subprocess
+                    
+                    # Use wmctrl to focus Minecraft window
+                    result = subprocess.run(['wmctrl', '-a', 'Minecraft'], 
+                                          capture_output=True, timeout=5)
+                    
+                    if result.returncode == 0:
+                        time.sleep(0.5)
+                        print("   ✅ Focused Minecraft window using wmctrl")
+                        return True
+                    else:
+                        print("   ⚠️  wmctrl failed or Minecraft not found")
+                        
+                except Exception as e:
+                    print(f"   ⚠️  Linux focus method failed: {e}")
+            
+            # Method 2: Try pygetwindow as fallback
             try:
+                print("   �️  Trying pygetwindow fallback...")
                 import pygetwindow as gw
                 
-                # Get all windows and filter for Minecraft
-                all_windows = gw.getAllWindows()
+                # Get all windows and search for Minecraft
+                all_windows = gw.getAllTitles()
                 minecraft_window = None
                 
-                for window in all_windows:
-                    window_title = window.title.lower()
-                    if ('minecraft' in window_title and 
-                        len(window_title) > 1 and  # Avoid empty titles
-                        window.visible):
-                        minecraft_window = window
-                        break
+                for title in all_windows:
+                    if 'minecraft' in title.lower() and len(title) > 1:
+                        minecraft_windows = gw.getWindowsWithTitle(title)
+                        if minecraft_windows:
+                            minecraft_window = minecraft_windows[0]
+                            break
                 
                 if minecraft_window:
+                    minecraft_window.restore()
                     minecraft_window.activate()
-                    time.sleep(0.3)  # Give window time to focus
-                    logger.info(f"Successfully focused Minecraft window: {minecraft_window.title}")
+                    time.sleep(0.7)  # Longer wait for focus
+                    print(f"   ✅ Focused window: '{minecraft_window.title[:30]}...'")
                     return True
+                else:
+                    print("   ⚠️  No Minecraft window found via pygetwindow")
                     
             except Exception as e:
-                logger.debug(f"pygetwindow method failed: {e}")
+                print(f"   ⚠️  pygetwindow fallback failed: {e}")
             
-            # Method 2: Fallback - Click on center of screen (assumes Minecraft is visible)
+            # Method 3: Alt+Tab/Cmd+Tab as last resort
             try:
-                # Get screen size
-                import mss
-                with mss.mss() as sct:
-                    monitor = sct.monitors[1]  # Primary monitor
-                    screen_width = monitor['width']
-                    screen_height = monitor['height']
-                
-                # Click on center of screen (where Minecraft likely is)
-                center_x = screen_width // 2
-                center_y = screen_height // 2
-                
-                pyautogui.click(center_x, center_y)
-                time.sleep(0.2)
-                logger.info("Clicked center of screen to focus Minecraft")
-                return True
-                
-            except Exception as e:
-                logger.debug(f"Screen click method failed: {e}")
-            
-            # Method 3: Use Alt+Tab to cycle to Minecraft (macOS: Cmd+Tab)
-            try:
-                import platform
-                if platform.system() == "Darwin":  # macOS
+                print("   ⌨️  Trying keyboard shortcut as last resort...")
+                if system == "Darwin":
+                    # On macOS, use Cmd+Tab
                     pyautogui.hotkey('cmd', 'tab')
-                else:  # Windows/Linux
+                    time.sleep(0.5)
+                    # Try once more to cycle if needed
+                    pyautogui.hotkey('cmd', 'tab')
+                else:
+                    # On Windows/Linux, use Alt+Tab
+                    pyautogui.hotkey('alt', 'tab')
+                    time.sleep(0.5)
                     pyautogui.hotkey('alt', 'tab')
                     
-                time.sleep(0.5)
-                logger.info("Used keyboard shortcut to switch windows")
-                return True
+                time.sleep(0.7)
+                print("   ⚠️  Used keyboard shortcuts (may need manual adjustment)")
+                return True  # Assume it worked since we tried
                 
             except Exception as e:
-                logger.debug(f"Keyboard shortcut method failed: {e}")
-                
-            logger.warning("All focus methods failed - manual focus required")
+                print(f"   ⚠️  Keyboard shortcut failed: {e}")
+            
+            print("   ❌ All focus methods failed")
             return False
             
         except Exception as e:
+            print(f"   ❌ Focus error: {e}")
             logger.error(f"Error focusing Minecraft window: {e}")
             return False
     
     def _ensure_minecraft_focus(self) -> None:
-        """Ensure Minecraft is focused before executing actions."""
-        # Try to focus Minecraft window
-        focus_success = self._focus_minecraft_window()
+        """Ensure Minecraft is focused before executing actions (silent version)."""
+        # This is a silent version used during action execution
+        # The verbose focusing is done at the instruction level
+        try:
+            # Quick focus attempt without verbose output
+            if HAS_CONTROL:
+                # Just try the quickest method (screen center click)
+                import mss
+                with mss.mss() as sct:
+                    monitor = sct.monitors[1]
+                    center_x = monitor['width'] // 2
+                    center_y = monitor['height'] // 2
+                    pyautogui.click(center_x, center_y)
+                    time.sleep(0.1)  # Brief pause
+        except Exception as e:
+            logger.debug(f"Silent focus attempt failed: {e}")
+            # Don't print errors here to avoid spam
+    
+    def _handle_minecraft_pause(self) -> bool:
+        """
+        Handle Minecraft pause menu if it's open.
         
-        if not focus_success:
-            # If we can't focus automatically, provide helpful instructions
-            print("⚠️  Could not automatically focus Minecraft window.")
-            print("   Manual steps:")
-            print("   1. Click on the Minecraft window to focus it")
-            print("   2. Or set Minecraft: Options → Controls → 'Pause on Lost Focus: OFF'")
-            print("   3. Or use windowed mode for easier window management")
-            print("   Continuing with action...")
-            time.sleep(1)  # Give user time to manually focus if needed
+        Returns:
+            True if handled/no pause detected, False if couldn't handle
+        """
+        if not HAS_CONTROL:
+            return False
+        
+        try:
+            # Method 1: Try to detect pause menu and close it
+            # Press Escape twice to ensure we're not in pause menu
+            # First Escape: If in pause menu, closes it. If not, opens it.
+            # Second Escape: If first one opened it, this closes it. If first closed it, does nothing.
+            
+            logger.debug("Checking for Minecraft pause menu...")
+            
+            # Give Minecraft focus first
+            self._focus_minecraft_window()
+            time.sleep(0.1)
+            
+            # Double-tap escape to ensure we're not in pause menu
+            pyautogui.press('escape')
+            time.sleep(0.1)
+            pyautogui.press('escape')  
+            time.sleep(0.1)
+            
+            logger.debug("Handled potential Minecraft pause menu")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error handling pause menu: {e}")
+            return False
+    
+    def _detect_minecraft_pause_menu(self) -> bool:
+        """
+        Try to detect if Minecraft pause menu is open using screen capture.
+        
+        Returns:
+            True if pause menu is detected, False otherwise
+        """
+        if not HAS_CONTROL:
+            return False
+            
+        try:
+            # Capture screen and look for pause menu indicators
+            screenshot = self._capture_screen()
+            if screenshot is None:
+                return False
+            
+            # Convert to grayscale for easier text detection
+            import numpy as np
+            screenshot_gray = screenshot.convert('L')
+            screenshot_array = np.array(screenshot_gray)
+            
+            # Look for common pause menu text patterns
+            # This is a simple approach - could be enhanced with OCR
+            
+            # For now, return False and rely on the escape key method
+            return False
+            
+        except Exception as e:
+            logger.debug(f"Could not detect pause menu: {e}")
+            return False
+    
+    def process_instruction(self, instruction: str) -> str:
+        """
+        Public method to process an instruction (for testing/API use).
+        
+        Args:
+            instruction: Natural language instruction
+            
+        Returns:
+            Response message
+        """
+        return self._process_instruction(instruction)
+    
+    def _verify_minecraft_focus(self) -> bool:
+        """
+        Verify if Minecraft is currently the focused application.
+        
+        Returns:
+            True if Minecraft appears to be focused, False otherwise
+        """
+        if not HAS_CONTROL:
+            return False
+        
+        import platform
+        system = platform.system()
+        
+        try:
+            if system == "Darwin":  # macOS
+                import subprocess
+                
+                # Check if Java process (Minecraft) is frontmost
+                apple_script = '''
+                tell application "System Events"
+                    set frontApp to name of first application process whose frontmost is true
+                    if frontApp is "java" then
+                        return "minecraft_focused"
+                    else
+                        return frontApp
+                    end if
+                end tell
+                '''
+                
+                result = subprocess.run(['osascript', '-e', apple_script], 
+                                      capture_output=True, text=True, timeout=3)
+                
+                if result.returncode == 0:
+                    active_app = result.stdout.strip().lower()
+                    return 'minecraft_focused' in active_app or 'java' in active_app
+                    
+            elif system == "Windows":
+                try:
+                    import pygetwindow as gw
+                    active_window = gw.getActiveWindow()
+                    if active_window:
+                        return 'minecraft' in active_window.title.lower()
+                except:
+                    pass
+                    
+            return False  # Default to False if we can't determine
+            
+        except Exception as e:
+            logger.debug(f"Could not verify Minecraft focus: {e}")
+            return False
+    
+    def _ensure_minecraft_focus(self) -> None:
+        """Ensure Minecraft is focused before executing actions (silent version)."""
+        # This is a silent version used during action execution
+        # The verbose focusing is done at the instruction level
+        try:
+            # Quick focus attempt without verbose output
+            if HAS_CONTROL:
+                # Just try the quickest method (screen center click)
+                import mss
+                with mss.mss() as sct:
+                    monitor = sct.monitors[1]
+                    center_x = monitor['width'] // 2
+                    center_y = monitor['height'] // 2
+                    pyautogui.click(center_x, center_y)
+                    time.sleep(0.1)  # Brief pause
+        except Exception as e:
+            logger.debug(f"Silent focus attempt failed: {e}")
+            # Don't print errors here to avoid spam
     
     def _handle_minecraft_pause(self) -> bool:
         """
@@ -704,15 +993,16 @@ Be conversational but include the action keywords so the system knows what to do
         return self._process_instruction(instruction)
 
 
-def start_conversational_agent(openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini") -> None:
+def start_conversational_agent(openai_api_key: Optional[str] = None, model: str = "gpt-4o-mini", auto_focus: bool = True) -> None:
     """
     Start the conversational Minecraft agent.
     
     Args:
         openai_api_key: Optional OpenAI API key for enhanced chat
         model: OpenAI model to use
+        auto_focus: Whether to automatically focus Minecraft before each command
     """
-    agent = ConversationalMinecraftAgent(openai_api_key, model)
+    agent = ConversationalMinecraftAgent(openai_api_key, model, auto_focus)
     agent.start_conversation()
 
 

@@ -21,17 +21,25 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python minecraft_chat.py                    # Start with basic commands
+  python minecraft_chat.py                    # Auto-focus mode (default)
+  python minecraft_chat.py --manual-focus     # Manual focus mode (asks you to focus)
+  python minecraft_chat.py --no-auto-focus    # Disable auto-focus (not recommended)
   python minecraft_chat.py --openai-key sk-... # Start with full AI chat (gpt-4o-mini)
-  python minecraft_chat.py --model o1-mini   # Use o1-mini model
   
   OPENAI_API_KEY=sk-... python minecraft_chat.py  # Use environment variable
 
 Instructions:
-  1. Make sure Minecraft is running and focused
+  1. Open Minecraft and load a world
   2. Start this script  
-  3. Type natural language instructions
-  4. Watch the agent control Minecraft for you!
+  3. The agent will try to focus Minecraft automatically
+  4. If that fails, you'll be prompted to click Minecraft manually
+  5. Type natural language instructions
+  6. Watch the agent control Minecraft for you!
+
+CRITICAL SETUP:
+  • Set Minecraft to WINDOWED mode (not fullscreen)
+  • In Minecraft: Options → Controls → Set 'Pause on Lost Focus: OFF'
+  • Position Minecraft and terminal windows side-by-side
 
 Example conversations:
   You: "Go forward and mine that tree"
@@ -68,6 +76,25 @@ Example conversations:
         help="Show commands to install required dependencies"
     )
     
+    parser.add_argument(
+        "--auto-focus",
+        action="store_true",
+        default=True,
+        help="Automatically focus Minecraft before each command (default: True)"
+    )
+    
+    parser.add_argument(
+        "--no-auto-focus",
+        action="store_true",
+        help="Disable automatic Minecraft focusing"
+    )
+    
+    parser.add_argument(
+        "--manual-focus",
+        action="store_true",
+        help="Use manual focus mode (ask user to focus Minecraft before each command)"
+    )
+    
     args = parser.parse_args()
     
     if args.check_deps:
@@ -81,10 +108,16 @@ Example conversations:
     # Get OpenAI API key
     openai_api_key = args.openai_key or os.getenv("OPENAI_API_KEY")
     
+    # Determine auto-focus setting
+    if args.manual_focus:
+        auto_focus = False  # Manual mode - always ask user to focus
+    else:
+        auto_focus = not args.no_auto_focus  # Auto mode (default) or disabled
+    
     # Import and start the agent
     try:
         from agent.conversational_agent import start_conversational_agent
-        start_conversational_agent(openai_api_key, args.model)
+        start_conversational_agent(openai_api_key, args.model, auto_focus)
     except ImportError as e:
         print(f"❌ Import error: {e}")
         print("\n💡 Make sure you're running from the project root directory:")
